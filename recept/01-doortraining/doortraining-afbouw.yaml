@@ -1,0 +1,169 @@
+# Interne werknamen zijn voor publicatie vervangen door algemene woorden, in het commentaar en in
+# twee paden. Verder zijn de waarden niet aangepast.
+# De waarden volgen het plan van 6 augustus 2026, met 477 stappen op een aparte afbouwslice. Het
+# commentaar beschrijft grotendeels de cooldown van 64 stappen die voor het uitgegeven model is
+# gedraaid, vanaf het bewaarpunt (checkpoint) bij stap 3.816 op hetzelfde corpus als de hoofdfase. max_steps,
+# eval_steps, save_steps, de data, het startpunt en de paden wijken af van de configuratie zoals
+# zij draaide; zie recept/README.md.
+# Waar het commentaar het interne trainingsplan noemt, gaat het om een stuk dat niet in deze
+# repository staat.
+# =====================================================================
+# Walnoot doortraining - LR-afbouw per kandidaat-curvepunt (de "D" van WSD)
+# =====================================================================
+# HOORT BIJ doortraining-hoofdfase.yaml. Die config traint met een VLAKKE LR na de
+# warmup (constant_with_warmup), zodat het tokenplafond achteraf gekozen mag worden en de
+# verlenging van 4B naar 8B de curvepunten niet onvergelijkbaar maakt. De prijs van
+# die keuze is dat GEEN ENKEL curvepunt vanzelf een LR-decay krijgt en een model dat op volle LR
+# is bevroren is systematisch slechter dan hetzelfde model na een korte decay.
+#
+# Deze config levert die decay als APARTE, korte run vanaf een gekozen curvepunt. Bedoeld voor de
+# kandidaten die de selectie haalden, niet voor alle acht; het interne trainingsplan voorzag twee
+# cooldowns.
+#
+# WAT DIT WEL EN NIET IS
+#   WEL  een LR-decay-pass die het gekozen curvepunt afmaakt: 64 steps van 2e-5 lineair naar 0
+#        (zo gedraaid; max_steps hieronder volgt het plan).
+#   NIET een extra trainingsfase. 64 steps is 67.108.864 tokens, circa 1,7 procent van 4B. Wie
+#        hem als "meer tokens" gebruikt, breekt de curve-logica.
+#   NIET een vervanging van de mini-eval. Het plan was cooldown-modellen ONDERLING te vergelijken
+#        en tegen hun eigen punt van voor de cooldown, in hetzelfde regime (dezelfde mini-eval).
+#
+# REKENWERK (voor de gedraaide cooldown van 64 stappen)
+#   tokens/step = 8 x 4 x 8 x 4096 = 1.048.576
+#   64 steps    = 67.108.864 tokens = 0,067B
+#   duur        = 64 x circa 29 s/step = circa 31 minuten
+#   LR-vorm     = get_linear_schedule_with_warmup(num_warmup_steps=0, num_training_steps=64):
+#                 lr_lambda(step) = max(0, (64 - step) / 64), dus exact 2e-5 bij stap 0 en 0 bij 64.
+#
+# WAAROM EEN VERSE RUN EN GEEN RESUME
+# Resumen vanaf checkpoint-N met max_steps N+64 herstelt de scheduler-state op stap N en de
+# opnieuw gebouwde lineaire lambda geeft dan meteen 2e-5 x 64/(N+64), dus een LR-VAL van orde
+# tien tot honderd keer in een enkele stap. Dat is geen cooldown maar een sprong. Een verse run met
+# het curvepunt als `base_model` geeft wel de bedoelde vorm. Prijs: de Adam-momenten beginnen op
+# nul. Voor 64 steps decay is dat een aanvaardbare benadering en het is dezelfde vorm als de
+# identity-anneal die op twee eerdere proefschalen is beproefd.
+#
+# GEBRUIK VOLGENS HET PLAN (dit zijn geen stappen om het uitgegeven model na te maken; zie
+# recept/README.md)
+#   1. De placeholder in `base_model` wordt vervangen door het pad van het gekozen curvepunt. De
+#      placeholder is opzettelijk onbruikbaar, zodat een vergeten invulling luid faalt in plaats
+#      van stil het verkeerde model te pakken (patroon uit de controle van een eerdere schaal).
+#   2. output_dir krijgt per variant een eigen achtervoegsel (hier -S), zodat twee afbouwruns
+#      elkaar niet overschrijven.
+#   3. Een configcontrole met verify_config.py (niet meegeleverd), in deze vorm
+#        python verify_config.py doortraining-afbouw.yaml \
+#          --mode cooldown --compare-main doortraining-hoofdfase.yaml --free-gb <N>
+#   4. axolotl preprocess doortraining-afbouw.yaml
+#      Het plan eiste dat preprocess de BESTAANDE Arrow-cache hergebruikt. Een verse tokenisatie
+#      van het volle corpus duurt uren voor een run van 31 minuten en wijst op een datablok dat
+#      afwijkt van de hoofdconfig.
+#   5. axolotl train doortraining-afbouw.yaml
+# =====================================================================
+
+# ---- Basismodel: HET CURVEPUNT, niet het HF-basismodel. ----
+# Placeholder. De configcontrole weigerde het bestand zolang /OVERRIDE-ME/ in het pad stond. In de
+# gedraaide cooldown stond hier het bewaarpunt bij stap 3.816 (zie recept/README.md).
+base_model: /OVERRIDE-ME/wsout/outputs/doortraining-cpt-prepared/checkpoint-XXXX
+trust_remote_code: false
+# GEEN `revision_of_model` hier: dat is een hub-revisie en `base_model` is een lokaal pad.
+# De revisie-pin is upstream afgedwongen; dit checkpoint is per definitie geproduceerd door
+# de hoofdfase-config op de gepinde sha.
+# Tokenizer EXPLICIET op het HF-basismodel in plaats van op het checkpoint. Twee redenen: de vocab
+# is identiek (CPT wijzigt geen tokens) en de prepared-cache-sleutel bevat de tokenizer-identiteit,
+# dus dit maximaliseert de kans dat preprocess (stap 4 hierboven) de bestaande Arrow-cache
+# hergebruikt.
+tokenizer_config: swiss-ai/Apertus-8B-2509
+
+plugins:
+  - axolotl.integrations.cut_cross_entropy.CutCrossEntropyPlugin
+
+# ---- Data ----
+# In de gedraaide cooldown wees dit blok naar hetzelfde corpus als doortraining-hoofdfase.yaml.
+# De cooldown moest op dezelfde verdeling decayen als waarop getraind is. Een afwijkend datablok
+# verandert bovendien de axolotl-config-hash en dus de Arrow-cache-sleutel. In dit bestand wijst
+# het blok volgens het plan van 6 augustus naar een aparte afbouwslice.
+# De configcontrole met --compare-main vergeleek dit blok veld voor veld met de hoofdconfig.
+datasets:
+  - path: /data/corpus/v2_slice   # de afbouwslice
+    data_files:
+      - "/data/corpus/v2_slice/shard-*.jsonl"
+    ds_type: json
+    type: completion
+    field: text
+    split: train
+
+dataset_prepared_path: /wsout/prepared/cpt-doortraining-afbouw-prepared   # vers en slice-eigen, zodat geen eerdere cache stil wordt hergebruikt
+dataset_num_proc: 8
+
+# ---- Dezelfde BINDENDE held-out, zodat de cooldown-winst op dezelfde as gemeten wordt. ----
+test_datasets:
+  - path: /data/corpus/heldout/heldout_en_code.jsonl   # dezelfde held-out als de hoofdfase
+    ds_type: json
+    type: completion
+    field: text
+    split: train
+
+# ---- Sequence / packing: identiek ----
+sequence_len: 4096
+sample_packing: true
+pad_to_sequence_len: true
+ddp_timeout: 1200
+
+# ---- Batch / stappen ----
+micro_batch_size: 8
+gradient_accumulation_steps: 4
+max_steps: 477                      # cooldown 477 stappen = 500.170.752 tokens, een pass over de verse slice
+
+# ---- Optimizer / LR: HIER zit het enige inhoudelijke verschil met de hoofdconfig ----
+# lineair van 2e-5 naar 0 zonder warmup; in de gedraaide cooldown over 64 steps, in dit bestand
+# over max_steps. `warmup_steps: 0` en NIET `warmup_ratio`:
+# axolotl staat niet toe dat beide gezet zijn en 0,02 x 64 zou een warmup van 1 step geven die de
+# eerste stap onnodig verlaagt.
+optimizer: adamw_torch_fused
+learning_rate: 2.0e-5
+lr_scheduler: linear
+warmup_steps: 0
+weight_decay: 0.1
+max_grad_norm: 1.0
+
+# ---- Precisie / geheugen: identiek ----
+bf16: true
+tf32: true
+gradient_checkpointing: true
+attn_implementation: flash_attention_2
+
+# ---- Distributie: identiek ----
+fsdp_version: 2
+fsdp_config:
+  offload_params: false
+  cpu_ram_efficient_loading: true
+  auto_wrap_policy: TRANSFORMER_BASED_WRAP
+  transformer_layer_cls_to_wrap: ApertusDecoderLayer
+  state_dict_type: FULL_STATE_DICT
+  reshard_after_forward: true
+
+# ---- Eval en checkpoint: een meting en een save, allebei aan het eind ----
+# Met de geerfde waarde 477 krijgt het eindpunt van een cooldown van 64 stappen geen trainer-eval
+# op de held-out, want 64 deelt 477 niet. In de gedraaide cooldown stonden eval_steps en
+# save_steps op 64.
+eval_steps: 477                     # in dit plan gelijk aan max_steps
+output_dir: /wsout/outputs/v2-afbouw-S   # een eigen outputmap per variant, zodat twee afbouwruns elkaar niet overschrijven
+save_strategy: steps
+save_steps: 477                     # de configcontrole eiste save_steps == max_steps
+save_total_limit: 2
+save_safetensors: true
+# GEEN auto_resume_from_checkpoints: een cooldown die opnieuw moet, begint opnieuw. Hervatten
+# midden in een decay van 64 steps is goedkoper over te doen dan correct te krijgen.
+
+logging_steps: 5
+
+special_tokens:
+  pad_token: "<pad>"
+# Bewust een ANDER seed dan de hoofdrun (42). Met seed 42 zou de RandomSampler exact dezelfde
+# volgorde opleveren en zou de cooldown de packs herzien die de hoofdrun bij stap 0 tot 63 al
+# trainde. De cooldown is een LR-decay-pass en geen kennis-pass, dus verse packs zijn strikt beter.
+# VOORBEHOUD in het plan. Mocht `axolotl preprocess` hierdoor onverwacht de cache missen (seed hoort
+# niet in de dataset-hash te zitten, maar dat was nog niet op de trainingsmachine geverifieerd),
+# dan ging seed terug naar 42 en werden de herziene packs genoteerd. Een cache-miss is duurder dan
+# pack-herhaling. In de gedraaide cooldown bleef seed 4242.
+seed: 4242

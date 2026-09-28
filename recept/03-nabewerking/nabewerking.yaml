@@ -1,0 +1,178 @@
+# Interne werknamen zijn voor publicatie vervangen door algemene woorden. De werkmap op de
+# rekenomgeving staat als <W>. Verder zijn de waarden niet aangepast.
+# =====================================================================
+#  Walnoot nabewerking: zelfdistillatie met verwerping. Template met placeholders, 9 september
+#  2026, vastgesteld door WAINUT. De nabewerking van het uitgegeven model is met deze waarden
+#  gedraaid; alleen de paden met een placeholder kregen daarbij hun echte waarde. Zie
+#  recept/README.md.
+#
+#  DIT IS GEEN DPO. Dit is GEWONE SFT op de eigen antwoorden die de beoordelingsstap
+#  goed noemde. Er is geen referentiemodel, geen paar en geen bèta. Wat hij deelt met de
+#  DPO-varianten is de basis, de tokenizer en de opzet van de instructietraining.
+#
+#  DRIE PLACEHOLDERS, voor de indiening gevuld door een hulpscript (niet meegeleverd) en
+#  niet met de hand:
+#
+#      __ARMNAAM__     de naam van de run (alleen in dit commentaar)
+#      __DATA_PAD__    het recordbestand van de run
+#      __BASIS_PAD__   de modelmap van het instructiegetrainde model
+#
+#  __RUN_ID__ in de paden hieronder verving de ingediende jobtekst bij het draaien door het
+#  jobnummer met de naam van de run, zodat elke run een eigen cache en outputmap heeft.
+#
+#  Afgeleid van `instructietraining-mix.yaml`, de gepinde instructieconfig. Vijf verschillen
+#  zijn hieronder met VERSCHIL gemerkt. Daarnaast wijst tokenizer_config naar de lokale
+#  modelmap in plaats van naar het hub-id; zie het blok bij tokenizer_config hieronder.
+# =====================================================================
+
+# ---- V1. DE BASIS ----
+# De modelmap van de instructietraining, het laatste checkpoint bij stap 154, COMPLETED;
+# gewicht-sha 8e1eba00, op de doelomgeving teruggelezen na de kopie.
+# VERSCHIL 1: de instructieconfig start op de doorgetrainde basis; deze run start op het
+# instructiegetrainde model zelf, want hij distilleert dat model in zijn eigen beste output.
+base_model: __BASIS_PAD__
+
+# Gelijk aan de instructieconfig, op tokenizer_config na.
+# TOKENIZER_CONFIG WIJST NAAR DE LOKALE MODELMAP EN NIET NAAR EEN HUB-ID.
+# Een eerdere job viel na 1 min 42 op de configcontrole: de compute node heeft geen net
+# en er staat geen cache onder de werkmap, dus het hub-id was niet te
+# resolven. `base_model` wees al naar de lokale map; deze regel bleef achter.
+# Beide wijzen nu naar dezelfde placeholder, die het hulpscript met het echte pad
+# vulde. De offlinevlaggen staan in de jobtekst, zodat een onbedoelde
+# netwerkpoging daar ook nog eens afketst.
+tokenizer_config: __BASIS_PAD__
+trust_remote_code: false
+revision_of_model: 2256fb4a51e59fc115305da71c420b3b0a278e07
+
+plugins:
+  - axolotl.integrations.cut_cross_entropy.CutCrossEntropyPlugin
+
+# ---- V2. DE DATA ----
+# VERSCHIL 2: het datasetpad. De vorm is die van de instructiemix, dus een record met
+# `messages`: systeem, gebruiker, antwoord. Daarmee leest axolotl hem met
+# precies dezelfde regels als de instructiemix; er verandert niets aan de rendering.
+#
+# WAT ER IN DIT BESTAND HOORT en dat is de selectie uit de beoordeelde
+# antwoorden:
+#   alleen antwoorden die BEIDE rechters goed noemden
+#   hoogstens EEN antwoord per prompt
+#   de weerregel op LENGTE IN TEKENS: valt het langste van de goede antwoorden
+#     boven 1,8 maal de mediaan van de goede antwoorden van dezelfde laag, dan
+#     valt dat antwoord af
+#   valt daarmee het ENIGE goede antwoord van een prompt af, dan valt de prompt
+#     helemaal weg en levert hij geen record
+#
+# Zo stond de selectie beschreven toen deze template werd opgesteld. Hoe de antwoorden voor het
+# uitgegeven model werkelijk zijn gekozen, met een regelgebaseerde controle in drie families en
+# een derde model bij onenigheid, staat in herkomst/verantwoording-instructiedata.md.
+datasets:
+  - path: __DATA_PAD__
+    type: chat_template
+    field_messages: messages
+    roles_to_train: ["assistant"]
+    train_on_eos: turn
+
+# ONVERANDERD: de gepinde jinja en niet de standaardtemplate van de tokenizer.
+chat_template: jinja
+chat_template_jinja: <W>/configs/walnoot_sft_template.jinja
+eot_tokens: ["<|assistant_end|>"]
+
+dataset_prepared_path: <W>/runs/__RUN_ID__/prepared
+
+# ---- V3. DE SPLIT EN DE MEETPUNTEN, ONVERANDERD ----
+val_set_size: 0.02
+evals_per_epoch: 4
+saves_per_epoch: 1
+
+# ---- V4. DE VORM VAN EEN VOORBEELD ----
+# PACKING STAAT AAN en dat is het verschil met de DPO-varianten. Dit is gewone SFT:
+# een voorbeeld is EEN reeks en niet een paar, dus meerdere records in een reeks
+# van 4096 is precies wat je wilt. Zonder packing gaat vijf zesde van elke reeks
+# op aan padding, want een record is gemiddeld 757 tokens. Dat getal is de begroting
+# vooraf; gemeten zijn gemiddeld 1.018 tokens per record (zie
+# herkomst/verantwoording-instructiedata.md).
+sequence_len: 4096
+sample_packing: true
+pad_to_sequence_len: true
+
+# ---- V5. DE BATCH ----
+# VERSCHIL 3: de effectieve batch is 8 GEPAKTE REEKSEN in plaats van de 128 van de
+# instructieconfig. Op vier kaarten: world 4 maal micro 1 maal accum 2 is 8.
+#   rekensom vier  4 maal 1 maal 2 is 8
+#   rekensom twee  2 maal 1 maal 4 is 8
+#
+# WAAROM 8 EN NIET 32. Bij 32 gepakte reeksen draagt een stap 131.072 tokens en
+# telt de hele run maar 17 tot 26 optimizerstappen; bij 8 zijn het er 68 tot 102
+# voor precies dezelfde rekentijd, want er gaan evenveel tokens door het model.
+# Een korte rij optimizerstappen is geen besparing maar een gemiste kans.
+# Die stappentallen zijn de begroting vooraf; de run telde 37 stappen (zie
+# herkomst/verantwoording-instructiedata.md).
+micro_batch_size: 1
+gradient_accumulation_steps: 2
+
+# ---- V6. EEN EPOCH EN EEN HALVE LEARNING RATE ----
+# VERSCHIL 4: num_epochs 1 in plaats van 2, learning_rate 1e-5 in plaats van
+# 2.0e-5. Beide zijn vastgelegde besluiten en geen afleiding: deze run traint op tekst
+# die het model zelf heeft voortgebracht, dus een tweede epoch en de volle
+# learning rate zouden hem in zijn eigen gewoonten vastzetten.
+num_epochs: 1
+learning_rate: 1e-5
+lr_scheduler: cosine
+
+# VERSCHIL 5: warmup_steps 5 in plaats van warmup_ratio 0.03.
+# WAAROM. Op 68 tot 102 stappen zou 0,03 neerkomen op twee tot drie stappen en dat
+# getal beweegt mee met de omvang van de set. Vijf vaste stappen is 7,4 procent bij
+# 68 stappen en 4,9 procent bij 102, dus in beide gevallen een echte warmup.
+#
+# Er staat bewust GEEN `warmup_ratio` naast. axolotl kent beide velden en de combinatie is
+# op zijn best dubbelzinnig; de configvalidatie op de doelomgeving moest bevestigen dat
+# `warmup_steps` alleen wordt geaccepteerd.
+warmup_steps: 5
+
+# ONVERANDERD uit de instructieconfig.
+optimizer: adamw_torch_fused
+weight_decay: 0.0
+max_grad_norm: 1.0
+bf16: true
+tf32: true
+gradient_checkpointing: true
+attn_implementation: flash_attention_2
+
+fsdp_version: 2
+fsdp_config:
+  offload_params: false
+  cpu_ram_efficient_loading: true
+  auto_wrap_policy: TRANSFORMER_BASED_WRAP
+  transformer_layer_cls_to_wrap: ApertusDecoderLayer
+  state_dict_type: FULL_STATE_DICT
+  reshard_after_forward: true
+
+output_dir: <W>/runs/__RUN_ID__/outputs
+auto_resume_from_checkpoints: true
+save_strategy: steps
+save_total_limit: 4
+save_safetensors: true
+logging_steps: 5
+special_tokens:
+  pad_token: "<pad>"
+seed: 42
+
+# =====================================================================
+# DE CONTROLES VAN DEZE RUN. Vooraf vastgelegd en niet verschoven op grond van wat
+# eruit komt.
+#
+# HARDE CONTROLE, vorm en omvang.
+#   elk record draagt messages met precies een systeem-, een gebruikers- en een
+#     assistentbeurt, alle drie met tekst
+#   nul records die zichzelf als vormproef markeren
+#   het stappental ligt binnen de vooraf begrote band
+#
+# REGISTRATIE, GEEN CONTROLE.
+#   train_loss en eval_loss per meetpunt en de gradientnorm bij stap 5
+#
+# WAT HIER NIET WORDT GECONTROLEERD. Zelfdistillatie kan de lengteverdeling
+# verschuiven, want de rechters kiezen vaak het langere antwoord. De weerregel snijdt de
+# uitschieters weg. Het plan was de lengteverdeling van de output na de run naast die van
+# het startmodel te leggen, om te zien of dat genoeg was. Daarna was de
+# stopvaardigheidstoets met cap 1024 voorzien als eigen job, met 5 van 5 als eis.
+# =====================================================================

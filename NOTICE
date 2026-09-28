@@ -1,0 +1,145 @@
+Walnoot 8B Instruct
+Copyright 2026 WAINUT
+
+Dit product bevat software en modelgewichten die zijn ontwikkeld door WAINUT.
+
+--------------------------------------------------------------------------------
+BASISMODEL
+--------------------------------------------------------------------------------
+
+Dit model is afgeleid van:
+
+    Apertus-8B-2509
+    swiss-ai/Apertus-8B-2509
+
+Het bestand LICENSE.txt van het basismodel opent met deze copyrightvermelding,
+hier woordelijk overgenomen:
+
+    Copyright 2025 - The Swiss AI team.
+
+Het basismodel is beschikbaar onder de Apache License 2.0. Die licentie is
+dezelfde als de licentie van dit werk; de volledige tekst staat in het bestand
+LICENSE naast dit bestand.
+
+De uitgever van het basismodel hanteert daarnaast een afzonderlijke
+gebruiksvoorwaarde die los van de licentie kan wijzigen: de Apertus LLM
+Acceptable Use Policy, versie 1.0 van 1 september 2025, die in de repository van
+het basismodel staat als USAGE_POLICY.md. Die voorwaarde bindt wie het
+basismodel zelf gebruikt. Wie dit afgeleide model gebruikt, doet er goed aan
+haar te kennen.
+
+--------------------------------------------------------------------------------
+TRAININGSDATA
+--------------------------------------------------------------------------------
+
+Een deel van de bronnen die voor de training zijn gebruikt vraagt
+naamsvermelding. Die bronnen staan hieronder, met hun rechthebbende, hun
+vindplaats en hun licentie.
+
+BRONNEN ONDER CC BY 4.0
+
+    GPT-NL Public Corpus
+    rechthebbende   het GPT-NL-consortium
+    vindplaats      https://huggingface.co/datasets/GPT-NL/GPT-NL_Public_Corpus
+    licentie        CC BY 4.0
+    gebruikt als    corpus voor de voortgezette pretraining en als
+                    brondocument bij een deel van de instructiedata
+    citatie         Van Oort, Jesse J.; Brinkkemper, Frank; de Graaf, Erik;
+                    Vanroy, Bram; Lensink, Saskia. GPT-NL Public Corpus: A
+                    Permissively Licensed, Dutch-First Dataset for LLM
+                    Pre-training. Proceedings of the Fifteenth Language
+                    Resources and Evaluation Conference, mei 2026, Palma de
+                    Mallorca, Spanje. ELRA Language Resource Association,
+                    pagina 6893 tot 6903. doi 10.63317/5fbtc336wwx2
+
+    Chia
+    rechthebbende   de auteurs van de Chia Annotated Datasets
+    vindplaats      doi 10.6084/m9.figshare.11855817
+    licentie        CC BY 4.0
+
+    Qasper
+    rechthebbende   Allen Institute for AI
+    vindplaats      https://huggingface.co/datasets/allenai/qasper
+    licentie        CC BY 4.0
+
+BRONNEN ONDER EEN ANDERE CC BY-VERSIE
+
+    BioASQ
+    rechthebbende   het BioASQ-project
+    vindplaats      participants-area.bioasq.org/datasets/
+    licentie        CC BY 2.5
+
+    JNLPBA
+    rechthebbende   het GENIA-project
+    vindplaats      github.com/spyysalo/jnlpba
+    licentie        CC BY 3.0, GENIA Project License clausule 4
+
+DE WETENSCHAPPELIJKE TAK ALS VERZAMELING
+
+    SciRIFF
+    rechthebbende   Allen Institute for AI
+    vindplaats      https://huggingface.co/datasets/allenai/SciRIFF
+    licentie        ODC-By, Open Data Commons Attribution License
+
+De wetenschappelijke tak van de instructiedata komt uit SciRIFF. Chia,
+Qasper, BioASQ en JNLPBA hierboven en de bronnen in de twee blokken
+hieronder zijn bronsets binnen die verzameling.
+
+BRONNEN ONDER APACHE LICENSE 2.0, MIT OF BSD
+
+    SciTLDR
+    rechthebbende   de auteurs van SciTLDR (Cachola et al., 2020)
+    vindplaats      github.com/allenai/scitldr
+    licentie        Apache License 2.0
+
+    COVID-QA
+    rechthebbende   de auteurs van COVID-QA (Möller et al., 2020)
+    vindplaats      github.com/deepset-ai/COVID-QA
+    licentie        Apache License 2.0
+
+    QASA
+    rechthebbende   LG AI Research
+    vindplaats      github.com/lgresearch/QASA
+    licentie        MIT
+    copyright       Copyright (c) 2023 LG AI Research
+
+    PubMedQA
+    rechthebbende   de auteurs van PubMedQA (Jin et al., 2019)
+    vindplaats      github.com/pubmedqa/pubmedqa
+    licentie        MIT
+    copyright       Copyright (c) 2019 pubmedqa
+
+    MatSci Text Corpus
+    rechthebbende   de auteurs van het MatSci Text Corpus (Mysore et al., 2019)
+    vindplaats      github.com/olivettigroup/annotated-materials-syntheses
+    licentie        MIT
+    copyright       Copyright (c) 2019 olivettigroup
+
+    LINNAEUS
+    rechthebbende   de auteurs van LINNAEUS (Gerner et al., 2010)
+    vindplaats      sourceforge.net/projects/linnaeus/
+    licentie        BSD
+
+DE WETENSCHAPPELIJKE TAK, OVERIGE LICENTIES
+
+Uit dezelfde wetenschappelijke tak komen records onder CC0 1.0 (MedMentions,
+NLM-Chem) en in het publieke domein (NCBI Disease). Die licenties vragen geen
+naamsvermelding; de bronnen staan hier voor de volledigheid.
+
+De licentie van elke bron hierboven is herleid uit een primaire bron, dus uit
+het licentiebestand of de datasetkaart van die bron zelf. Geen enkele bron in
+de gebruikte mix staat onder een niet-commerciële licentie, onder share-alike,
+onder de GPL of onder een onderzoeksbeperking.
+
+Het teachermodel dat de synthetische antwoorden heeft gegenereerd is
+swiss-ai/Apertus-70B-Instruct-2509, beschikbaar onder de Apache License 2.0.
+
+Er wordt geen trainingsdata gepubliceerd. De bronnen en hun licenties staan
+hierboven; de records zelf gaan niet mee.
+
+--------------------------------------------------------------------------------
+REKENFACILITEIT
+--------------------------------------------------------------------------------
+
+"We acknowledge EuroHPC JU for awarding the project ID EHPC-AIF-2026PG01-984
+access to MareNostrum5 ACC hosted by BSC, Spain"

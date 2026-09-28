@@ -1,0 +1,351 @@
+# Interne werknamen zijn voor publicatie vervangen door gewone woorden, in het commentaar en in
+# twee paden. De werkmap op de rekenomgeving staat als <W>. Verder zijn de waarden niet
+# aangepast. Dit is de configuratie waarmee de instructietraining van het uitgegeven model is
+# gedraaid; zie recept/README.md.
+# =====================================================================
+# Walnoot instructietraining (SFT) op de rekenomgeving.
+#
+# CORRECTIE VAN HET COMMENTAAR, 23 september 2026. De getallen in dit commentaarblok
+# zijn gecorrigeerd op grond van een eigen meting. Het
+# commentaar droeg de cijfers van een eerdere variant (werknaam v2a), terwijl het pad en de
+# waarden van deze configuratie naar de geladen mix wijzen. De gecorrigeerde getallen gelden
+# voor de geladen mix van 51.875 records. Waar die meting geen waarde voor de geladen mix
+# geeft, staat dat er nu bij. De waarden van de configuratie zelf zijn ongewijzigd:
+# alleen commentaarregels zijn geraakt. Latere tellingen over de geladen mix staan in
+# herkomst/verantwoording-instructiedata.md.
+#
+# Afgeleid van de configuratie van de vorige instructiemix
+# (sha256 67cf65adf9a1345869e05ef09bbf9221d7409e04d545a7882981368ad16ecf10). Die bron is alleen
+# gelezen en niet gewijzigd. Gemaakt door een generatiescript, 7 september 2026,
+# onder een vastgelegd besluit met gepinde waarden.
+#
+# WAAROM DIT BESTAND BESTAAT. De vorige config is de opzet die op de rekenomgeving
+# aantoonbaar 112 stappen, eval_loss 0,601 naar 0,515 en 5 van 5 op de stoptoets gaf.
+# Deze config wisselt de DATA en niets anders, zodat een verschil in de uitslag aan de
+# mix toe te schrijven is en niet aan de trainsetup. Deze variant is de dikke dosis:
+# de families in hun volle levering, met de wetenschappelijke laag erbij.
+#
+# HET ENIGE VERSCHIL MET DE BRON en het is precies EEN sleutelregel:
+#   D1  datasets[0].path wijst naar
+#       <W>/data/instructiemix/walnoot_sft.jsonl
+#       in plaats van naar de vorige mix.
+# Alle overige sleutels zijn byte-gelijk aan de bron. Het generatiescript telde dat
+# zelf na met een sleutelvergelijking tegen de bron en meldde ROOD bij meer dan een
+# verschil.
+#
+# TWEE EPOCHS MET EEN CHECKPOINT PER EPOCH. num_epochs 2 met saves_per_epoch 1
+# geeft een save op de epochgrens en een eindsave. GEEN eval_steps en GEEN
+# save_steps in dit bestand: axolotl leidt die af uit het stappental dat de
+# preprocess werkelijk oplevert en dat stappental is hier een ander getal dan
+# de 112 van de vorige mix.
+#
+# DE EVAL_DELER-CONTROLE. Het blok in de jobtekst (niet meegeleverd) zet EVAL_DELER=8. Dat
+# getal volgt uit evals_per_epoch maal num_epochs, hieronder 4 maal 2. Bij een wijziging van
+# een van beide klopte 8 niet meer en moest dat blok mee veranderen. Het generatiescript
+# toetste het product.
+#
+# PLACEHOLDERS. `<W>` staat voor de werkmap op de rekenomgeving; daarin zat de
+# placeholder voor de rekengroep. `__RUN_ID__` staat voor het run-ID. De jobtekst
+# vulde beide in en schreef een ingevulde kopie op scratch; die kopie draaide, dit bestand
+# niet. De prepared-cache stond daarmee onder runs/$RUN_ID/prepared en was per constructie
+# vers en run-specifiek, mits PREPARED_PAD bij de indiening leeg meeging.
+#
+# DE RENDER. De regels `chat_template: jinja` en `chat_template_jinja` hieronder
+# zijn de voorwaarde waaronder de rendercontroles van het mixmanifest gelden. Onder
+# de standaard chat_template van de tokenizer krijgt elk systeemloos record stil
+# een Apertus-identiteitsprompt plus een developer- en toolblok; onder de gepinde
+# jinja (3530 bytes, sha256
+# ae225a7276a912e27d5fbef291d634a20a00f87ce9a69f2fd9a977f59bf7d282) is dat nul.
+# =====================================================================
+
+# ---- V1. DE BASIS. DIT IS DE ENIGE PLEK WAAR DEZE VARIANT VAN DE CONTROLEVARIANT
+#          VERSCHILT IN GEWICHTEN. ----
+# De controlevariant start op de KALE base, want die bestond om de doortraining te
+# isoleren. Deze variant bestaat niet daarvoor: hij is de tegenhanger van de vorige
+# generatie en die startte op de doorgetrainde base. Klaargezet als
+#   <W>/basis-doorgetraind/
+#     model.safetensors        16.106.727.320  e5b473c16fcb5e44ab6bcfaf5b4b63e3d23996a19a4202b296a49750d2be20d7
+#     config.json                         900  3a974293959244b2112666cdbd61cc1ea2395c0a457f27c39f15cc46d70d3625
+#     generation_config.json              162  9e63c5adc6c19c288ef4360381f52b02d313aaa03fe360a44ce81a05698b1f2a
+#
+# GEEN INDEXBESTAND en dat is geen omissie. De CPT-conversie schreef EEN
+# safetensors-bestand en niet vier shards, dus er is geen
+# `model.safetensors.index.json` en transformers heeft er ook geen nodig.
+#
+# DE GEWICHTEN-SHA IS NIET UIT DE KOPIEERLUS. e5b473c1... staat in
+# het borgmanifest van het bewaarpunt (checkpoint) in de object storage en is op de rekenomgeving na de kopie
+# opnieuw gemeten met `sha256sum -c`, 3 van 3 OK.
+#
+# DE GENERATION_CONFIG IS DIE VAN HET BEWAARPUNT ZELF, met `eos_token_id: [2]`. Dat
+# is bewust. De stoptoetsladder van 3 september draaide haar meting in conditie B met de
+# generation_config van de controlevariant (sha256 5312c67e..., `eos_token_id: [68, 2]`); die is een
+# MEETINSTRUMENT en niet het bestand van dit bewaarpunt. De vorige opzet startte ook op
+# een basis met alleen eos 2 (de kale base draagt `eos_token_id: 2`), dus deze variant
+# staat hierin byte-parallel aan de vorige generatie. Welke generation_config de OUTPUT
+# draagt, was een aparte keuze bij het ophalen van het eindmodel en `eot_tokens` hieronder
+# is wat het stopgedrag traint.
+base_model: <W>/basis-doorgetraind
+
+# ONVERANDERD. Tokenizer van de INSTRUCT-variant (zelfde vocab, wel de juiste
+# control-tokens, dus geen embedding-resize). Dit is een HUB-id en blijft dat,
+# want alleen zo doet `revision_of_model` hieronder echt werk.
+#
+# OFFLINE-EIS die hierbij hoort: onder HF_HUB_OFFLINE=1 moet dit id resolven uit
+# de klaargezette cache onder $HF_HOME/hub. Dat is op de rekenomgeving gemeten aanwezig:
+#   <W>/hf/hub/models--swiss-ai--Apertus-8B-Instruct-2509/
+#     snapshots/2256fb4a51e59fc115305da71c420b3b0a278e07/
+#       tokenizer.json, tokenizer_config.json, special_tokens_map.json,
+#       config.json, chat_template.jinja
+#     refs/main  ->  2256fb4a51e59fc115305da71c420b3b0a278e07
+# De gewichten van de Instruct-variant zijn NIET nodig en staan er ook niet.
+tokenizer_config: swiss-ai/Apertus-8B-Instruct-2509
+trust_remote_code: false
+
+# ---- REVISIEPIN, ONVERANDERD (naar aanleiding van een bevinding van een tegenlezer). ----
+# `revision_of_model` is de NATIEVE axolotl-sleutel en hij bereikt de tokenizer.
+# `base_model` is hier een lokaal pad, dus voor het MODEL is de waarde een no-op;
+# voor de TOKENIZER pint hij de revisie. Tweede slot, want een veld alleen dekt
+# maar een faalrichting: de preflight toetste de sha256 van de GELADEN
+# tokenizer-artefacten tegen deze gemeten waarden.
+#   tokenizer.json           010095abf1dc6f52d4867584e7b3f0d4eece854593ae310220ec7782dd1b0a66
+#   tokenizer_config.json    6089333b0279986b08fa6f16b6f50cf0e398a122dcf9caf18b45feef2024afa8
+#   special_tokens_map.json  3a3f3af9c9cbc9cf89c719d3de130913dcd626ac5061cdf3cd9ff21728f9d58f
+#   chat_template.jinja      56f72c27fa2e565312a830b7315a455c79fb452fdbe7a5b7595d8a094f282b07
+#
+# LET OP DE LAATSTE REGEL. Die 56f72c27 is precies de template die dit bestand
+# hieronder OVERSCHRIJFT met de gepinde jinja. De Instruct-revisie levert hem mee en
+# de tokenizer draagt hem als standaard; zonder `chat_template_jinja` rendert de
+# trainer met die standaard en komen de toevoegingen uit het blok DE RENDER hierboven
+# terug in de data.
+revision_of_model: 2256fb4a51e59fc115305da71c420b3b0a278e07
+
+# ONVERANDERD. Cut-cross-entropy is geen luxe op 64 GB-kaarten. Zonder dit plugin
+# materialiseert de loss de logits over 131.072 vocab-rijen maal de tokens in de
+# micro-batch; bij 8192 tokens is dat al ruim 2 GB in bf16 plus een fp32-kopie.
+# Het plugin uitzetten verandert bovendien de numeriek en daarmee de vergelijking.
+plugins:
+  - axolotl.integrations.cut_cross_entropy.CutCrossEntropyPlugin
+
+# ---- V2. Data. EEN datasets-entry en dat is de afwijking. ----
+#   entry 1 = de mix, 51.875 records, 149.968.466 bytes,
+#             sha256 01e27e43dcada008456d04933d414605c35c1d2905630bfd59d43d56a7b7f96e
+#
+# WAAROM EEN ENTRY EN NIET TWEE. De controlevariant laadt de ner-slice als tweede entry
+# ernaast. Gemeten op de geladen mix: nul records dragen `bron_set` ner_slice_v3. De
+# 2.666 records met die waarde horen bij de mix van de eerdere variant v2a en niet bij deze
+# mix. Een tweede entry zou records verdubbelen en de categoriecaps van het manifest
+# breken.
+#
+# HET METABESTAND REIST MEE MAAR WORDT NIET GELADEN. Naast de mix staat
+# een metabestand, 51.875 regels, regel voor regel synchroon, sha256
+# 074acd102a943579bada57827537d5f6fdf95535d70807386a945377522a2547. axolotl leest
+# dat bestand niet; het dient voor de analyse achteraf en de foutanalyse.
+#
+# KLAARGEZET EN TERUGGELEZEN. De datamap draagt de mix,
+# de meta, het manifest en SHA256SUMS; `sha256sum -c` gaf 3 van 3 OK.
+# De jobtekst hoorde de sha van entry 1 VOOR de preprocess te verifieren en bij een
+# afwijking te stoppen, net als in de controlevariant.
+datasets:
+  - path: <W>/data/instructiemix/walnoot_sft.jsonl
+    type: chat_template
+    field_messages: messages
+    roles_to_train: ["assistant"]
+    train_on_eos: turn
+
+# ---- RENDER-FIX, ONVERANDERD, pad en mechanisme gelijk aan de controlevariant. ----
+# `chat_template: jinja` plus `chat_template_jinja: <pad>` is het axolotl-
+# mechanisme voor een custom template. axolotl leest het bestand als het pad
+# BESTAAT en vat de waarde anders op als inline jinja-string; dat laatste is een
+# stil kapotte render. Het pad is daarom ABSOLUUT en cwd-onafhankelijk
+# en de preflight vergeleek de sha256 van het geladen bestand met de pin
+# ae225a7276a912e27d5fbef291d634a20a00f87ce9a69f2fd9a977f59bf7d282, zodat de
+# inline-string-fallback betrapt wordt als het bestand toch wegvalt.
+# Het bestand staat op de rekenomgeving met exact die sha256.
+chat_template: jinja
+chat_template_jinja: <W>/configs/walnoot_sft_template.jinja
+
+# ONVERANDERD. Zonder eot_tokens valt train_on_eos terug op </s>, dat niet in
+# assistant-turns voorkomt en dan volgt runaway-generatie. Na de training hoort de
+# stopvaardigheidstoets (P(EOT)) dit te bevestigen; de jobtekst had die toets in dezelfde job.
+eot_tokens: ["<|assistant_end|>"]
+
+# ---- VERSE, RUN-SPECIFIEKE PREPARED-CACHE, vorm ONVERANDERD. ----
+# Uitgangspunt, ongewijzigd van intentie. Een bestaande cache wordt NOOIT hergebruikt.
+# axolotl leest gecachte tokens en rendert niet opnieuw, dus een gedeeld pad doet
+# de render-fix stil teniet. `__RUN_ID__` garandeert dat twee runs elkaars cache niet
+# kunnen raken.
+# NOOT en hij is hier scherper dan in de controlevariant. Deze variant en die
+# MOESTEN verschillende RUN_ID's dragen. Een gedeelde prepared-cache laat deze variant
+# stil op de tokens van de andere trainen en dat geeft geen foutmelding: alleen 96 stappen in
+# plaats van de 154 stappen die deze mix oplevert. Het stappental is daarmee ook de
+# goedkoopste detector.
+dataset_prepared_path: <W>/runs/__RUN_ID__/prepared
+
+# ---- Eval-split. ----
+# val_set_size ONVERANDERD. Op 51.875 records geeft dat 50.837 train en 1.038 eval.
+val_set_size: 0.02
+
+# V3. EEN EVAL PER KWART EPOCH in plaats van per halve. Op 77 stappen per epoch geeft
+# dat over twee epochs acht meetpunten. Op welke stapnummers die meetpunten vallen is
+# niet gemeten voor de geladen mix. Bewust GEEN `eval_steps` ernaast:
+# axolotl weigert die combinatie in de validatie, net als bij saves_per_epoch en een
+# vooraf gepind getal zou naast de epochgrens kunnen vallen.
+# WAAROM VIER EN NIET TWEE. De vorige run gaf eval_loss 0,53145 / 0,52018 / 0,51893 /
+# 0,51861 op vier punten: de curve is na het eerste punt bijna vlak. Deze variant draait
+# op een andere datasamenstelling. Bij het opstellen is uitgegaan van 37,5 procent
+# systeemtokens, een aandeel dat op de eerdere variant v2a is gemeten; het gemeten aandeel
+# in de geladen mix staat in herkomst/verantwoording-instructiedata.md. De vraag of de loss
+# vroeg wegzakt of pas laat is precies wat je met twee punten per run niet ziet.
+# Vier punten per epoch kosten 1.038 eval-records maal acht, dus verwaarloosbaar tegen
+# de trainkosten.
+evals_per_epoch: 4
+
+# ONVERANDERD. 4096 is de sequence length waarop het vorige resultaat rust.
+# Het langste record en het aantal records boven 4.096 zijn niet gemeten voor de
+# geladen mix. Het getal van 3.354 tokens dat hier stond is een meting op de mix van
+# de eerdere variant v2a.
+sequence_len: 4096
+sample_packing: true
+pad_to_sequence_len: true
+
+# ---- Batch. ONVERANDERD t.o.v. de controlevariant. ----
+# 4 GPU's maal micro 2 maal accum 16 is 128 gepakte sequenties van 4096 tokens, dus
+# 524.288 tokens per optimizer-stap. Dat is dezelfde effectieve batch als de vorige run
+# op 8 GPU's met micro 4 en accum 4.
+#
+# WAAROM MICRO 2 EN NIET 4 op een node. De gemeten piek van de vorige run is
+# 35,45 GiB per GPU bij 8 ranks. De geshardde trainingsstaat is 16 bytes per
+# parameter en dat is 120,0 GiB voor 8,053 miljard parameters; bij 4 ranks 30,00 GiB
+# per GPU. De rest van de piek, 20,45 GiB, is activatie plus all-gather-buffer en
+# schaalt niet met het aantal ranks. Met micro 2 komt de piek op ongeveer 47 GiB
+# tegen een kaart van 64 GB. De fallback als het alsnog niet paste was micro 1 met
+# accum 32 en pas daarna fsdp offload_params. Beide zouden als afwijking zijn geregistreerd.
+#
+# DE DATA VERANDERT HIER NIETS AAN. De langste sequentie is niet gemeten voor de
+# geladen mix. Het geheugengebruik hangt aan micro maal sequence_len, dus aan 8192
+# tokens per micro-batch en dat is in beide gevallen gelijk.
+micro_batch_size: 2
+gradient_accumulation_steps: 16
+
+# ONVERANDERD. 2ep is de gemeten sweet-spot (P(EOT) hersteld naar 0,811, 5 van 5
+# op de stoptoets), 3ep is over-forgetting (MMLU-EN-overshoot -5,5), 1ep is
+# format-collaps. De randen zijn hard.
+num_epochs: 2
+
+# ---- Optimizer en LR, ONVERANDERD ----
+optimizer: adamw_torch_fused
+learning_rate: 2.0e-5
+lr_scheduler: cosine
+warmup_ratio: 0.03
+weight_decay: 0.0
+max_grad_norm: 1.0
+
+bf16: true
+tf32: true
+gradient_checkpointing: true
+# ONVERANDERD. flash_attention_2 vraagt flash-attn in de container. De wheel moest
+# IN de container-image (SIF) zitten, want de compute node heeft geen netwerk; de jobtekst
+# toetste de import voordat de training startte.
+attn_implementation: flash_attention_2
+
+# ONVERANDERD, integraal. FSDP2 blijft en wordt niet vervangen door DeepSpeed
+# ZeRO-3. ZeRO-3 met CPU-offload van de optimizer was de fallback als 4 ranks niet
+# pasten en dan als expliciete afwijking, niet als stille vervanging.
+fsdp_version: 2
+fsdp_config:
+  offload_params: false
+  cpu_ram_efficient_loading: true
+  auto_wrap_policy: TRANSFORMER_BASED_WRAP
+  transformer_layer_cls_to_wrap: ApertusDecoderLayer
+  state_dict_type: FULL_STATE_DICT
+  reshard_after_forward: true
+
+# ---- Run-specifiek outputpad, vorm ONVERANDERD. ----
+output_dir: <W>/runs/__RUN_ID__/outputs
+
+# ONVERANDERD. `--requeue` plus de USR1-handler in de jobtekst leunen hierop.
+auto_resume_from_checkpoints: true
+save_strategy: steps
+
+# ---- HET PUNT NA EEN EPOCH ALS TWEEDE MEETPUNT. Overgenomen uit de controlevariant. ----
+# `saves_per_epoch: 1` levert een save op de epochgrens: bij 154 stappen met 77
+# stappen per epoch zijn dat het bewaarpunt bij stap 77 (na 1 epoch) en dat bij stap
+# 154 (na 2 epochs).
+#
+# Er staat bewust GEEN `save_steps` naast. axolotl weigert de combinatie van
+# `saves_per_epoch` en `save_steps` en stopt in de validatie, dus een tweede,
+# expliciete regel maakt de pin niet harder maar breekt de run. Dat is hier bovendien
+# de veilige kant: het stappental van deze variant stond vooraf niet vast en een vooraf
+# gepind `save_steps` zou naast de epochgrens kunnen vallen. Deze sleutel volgt het
+# gemeten stappental.
+#
+# AFHANKELIJKHEID MET DE JOBTEKST. De jobtekst van de controlevariant droeg het bewaarpunt
+# bij stap 48 als vast pad voor het punt na een epoch. Voor deze variant is dat stap 77; het
+# plan was dat de jobtekst dat uit trainer_state.json afleidt in plaats van het vast te zetten.
+# De jobtekst staat niet in deze repository.
+#
+# De stopvaardigheidstoets was voorzien op allebei. Volgens het plan viel de keuze op het punt
+# na twee epochs als dat groen was. Was dat rood, dan viel zij op het punt na een epoch als dat
+# groen was. Waren beide rood, dan stopte de keten.
+saves_per_epoch: 1
+
+# ONVERANDERD. Vier is ruim voor twee bewaarpunten, dus het bewaarpunt na een epoch
+# overleeft de save na twee epochs. Lager zetten dan 2 wist dat eerste meetpunt.
+save_total_limit: 4
+save_safetensors: true
+
+logging_steps: 5
+special_tokens:
+  pad_token: "<pad>"
+seed: 42
+
+# =====================================================================
+# DE CONTROLES VAN DEZE VARIANT. Vooraf vastgelegd en ze worden niet verschoven op
+# grond van wat eruit komt. Een controle die faalt, stopt de keten.
+#
+# HARDE CONTROLE, data en batchvorm. Overdraagbaar, want de basis raakt deze
+# grootheden niet.
+#
+#     grootheid                  vorige generatie          deze mix
+#     records in de mix                    63.619          51.875
+#     ruwe tokens, hele set            26.129.956          niet gemeten voor de geladen mix
+#     optimizer-stappen                        96          154, band [152, 154, 156]
+#     eval per                           halve ep          kwart ep
+#     save per                                 ep          ep
+#
+# Ruwe tokens trainsplit 40.462.812 volgens de stappencontrole van de trainjob.
+#
+# De stappencontrole is dus GEEN puntwaarde maar een band. De trainjob meldde 154 stappen
+# binnen de toegestane band [152, 154, 156]. Alles daarbuiten blokkeert. Reden en meting
+# staan in de header. 96 stappen betekent dat de run op de prepared-cache van de
+# controlevariant draait en is een HARDE stop.
+#
+# REGISTRATIE, GEEN CONTROLE. Deze waarden hangen aan de basis EN aan de data en er is
+# geen eigen anker om ze tegen te leggen; een band eromheen zou verzonnen zijn.
+#
+#     loss bij stap 5, train_loss, eval_loss per meetpunt, train_runtime
+#
+# DE BASISCONTROLE en hier draait zij OM ten opzichte van de controlevariant. Bij stap 0
+# is er nog geen optimizer-stap gezet, dus eval_loss op stap 0 meet het BASISMODEL
+# zelf op de eval-split. Twee gemeten ankers uit de vorige generatie:
+#
+#     doorgetrainde basis, 4,0 miljard tokens              0,60692
+#     controlevariant 5 aug, kale base                     0,88974
+#
+#     eis     eval_loss bij stap 0 tussen 0,50 en 0,75
+#
+# Komt die waarde rond 0,89 uit, dan is de KALE base klaargezet in plaats van de
+# CPT-base en dan meet deze variant iets anders dan bedoeld. Dat is een tweede,
+# onafhankelijk slot op V1, gratis af te lezen uit trainer_state.json.
+#
+# LET OP DAT DIT ANKER NIET SCHERPER IS DAN HET IS. De 0,60692 is gemeten op
+# de eval-split van de controlevariant. Deze variant evalueert op een eigen split met
+# 1.038 records. Bij het opstellen is uitgegaan van systeemtokens die 37,5 procent van het
+# budget dragen, tegen 12,2 procent daar.
+# Beide aandelen komen uit de vorige generatie: 37,5 procent is gemeten op de eerdere
+# variant v2a en 12,2 procent op de controlevariant. Voor de geladen mix staat het gemeten
+# aandeel systeemtokens in herkomst/verantwoording-instructiedata.md.
+# De waarde hoort daarom in dezelfde orde te liggen en niet op de komma gelijk te
+# zijn. De band 0,50 tot 0,75 is ruim gekozen om die reden en zij scheidt nog steeds
+# de CPT-base van de kale base, want die twee liggen 0,28 uit elkaar.
+# =====================================================================

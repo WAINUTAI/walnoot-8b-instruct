@@ -1,0 +1,114 @@
+# Interne werknamen in het commentaar zijn voor publicatie vervangen door algemene woorden; de
+# waarden zijn niet aangepast.
+# Dit is een oudere, algemene template voor de instructietraining. Het uitgegeven model is hier niet
+# mee getraind; de configuratie die wel is gedraaid, is instructietraining-mix.yaml. Zie
+# recept/README.md.
+# =====================================================================
+# Walnoot - SUPERVISED FINE-TUNING (SFT)
+# =====================================================================
+# axolotl-config, gepind op axolotl==0.17.0.
+# Full fine-tune (geen LoRA) op synthetische Nederlandse data uit de map met de instructiedata.
+#
+# A/B-PADEN:
+#   Pad A (default): base_model = de CPT-output (walnoot-8b-cpt).
+#   Pad B (fallback): base_model = swiss-ai/Apertus-8B-Instruct-2509.
+# Een startscript (niet meegeleverd) zette base_model via --base-model; hieronder staat Pad A
+# als standaard.
+# ---------------------------------------------------------------------
+
+# ---- Basismodel ----
+base_model: /wsout/outputs/walnoot-8b-cpt      # Pad A, het CPT-checkpoint in de opzet van deze oudere template (/wsout, de host-mount)
+# Pad B: swiss-ai/Apertus-8B-Instruct-2509
+# Geverifieerd 10 jul 2026: axolotl 0.17.0 pint transformers==5.9.0 incl. de Apertus-fixes (#43473
+# meta-tensor-load, #44567 xielu-fallback-crash); ApertusDecoderLayer geverifieerd in 5.9.0.
+# De -2509-model-ids zijn correct; de pins op base_model en tokenizer staan bewust vast.
+
+# De tokenizer komt van de INSTRUCT-variant, ook voor Pad A.
+# Reden: de kale base-tokenizer heeft de role-tokens (<|assistant_start|> ...)
+# wel in de vocab, maar niet gegarandeerd de chat_template. De Instruct-tokenizer
+# heeft exact dezelfde vocab + de juiste template -> geen embedding-resize.
+tokenizer_config: swiss-ai/Apertus-8B-Instruct-2509
+trust_remote_code: false
+
+plugins:
+  - axolotl.integrations.cut_cross_entropy.CutCrossEntropyPlugin
+
+# ---- Data: chat/OpenAI-messages-formaat uit de map met de instructiedata ----
+# Elke regel: {"messages":[{"role":"system|user|assistant","content":"..."}]}
+# chat_template: tokenizer_default -> gebruikt Apertus' EIGEN template
+# (de <|system_start|>/<|user_start|>/<|assistant_start|>-vorm).
+datasets:
+  - path: /data/datagen/sft          # map of .jsonl-bestand met de instructiedata
+    type: chat_template
+    field_messages: messages
+    roles_to_train: ["assistant"]    # masker system/user; train alleen op assistant
+    train_on_eos: turn               # leer het turn-einde (<|assistant_end|>)
+chat_template: tokenizer_default
+# Zonder eot_tokens valt train_on_eos terug op tokenizer.eos_token (</s>, id 2): dat komt in
+# assistant-turns niet voor, dus het turn-einde-token zou nooit getraind worden -> runaway-generatie
+# die de scores op ScaLA en SQuAD en de output zelf onbruikbaar maakt (een eerder waargenomen
+# instortingspatroon bij een instructiemodel).
+# Bedoelde controle in de smoketest was vijf antwoorden genereren en nagaan dat <|assistant_end|>
+# binnen max_tokens valt.
+eot_tokens: ["<|assistant_end|>"]
+dataset_prepared_path: /wsout/prepared/sft   # /wsout, niet /workspace: dat pad verbergt de bewerkbare axolotl-broncode
+
+# ---- Eval-split (mag hier wel: dit is GEEN streaming pretraining_dataset) ----
+val_set_size: 0.02
+evals_per_epoch: 2
+
+# ---- Sequence / packing ----
+sequence_len: 4096
+sample_packing: true
+pad_to_sequence_len: true
+
+# ---- Batch / epochs ----
+micro_batch_size: 4
+gradient_accumulation_steps: 4
+num_epochs: 3
+
+# ---- Optimizer / LR (SFT: lager dan CPT niet nodig; 1e-5 full-FT is gangbaar) ----
+optimizer: adamw_torch_fused
+learning_rate: 1.0e-5
+lr_scheduler: cosine
+warmup_ratio: 0.03
+weight_decay: 0.0
+max_grad_norm: 1.0
+
+# ---- Precisie / geheugen ----
+bf16: true
+tf32: true
+gradient_checkpointing: true
+attn_implementation: flash_attention_2
+
+# ---- Distributie: FSDP2 (identiek aan CPT) ----
+fsdp_version: 2
+fsdp_config:
+  offload_params: false
+  cpu_ram_efficient_loading: true
+  auto_wrap_policy: TRANSFORMER_BASED_WRAP
+  transformer_layer_cls_to_wrap: ApertusDecoderLayer
+  state_dict_type: FULL_STATE_DICT
+  reshard_after_forward: true
+# DeepSpeed-alternatief:  deepspeed: deepspeed_configs/zero3_bf16.json
+
+# ---- Checkpoints ----
+# output_dir op /wsout (host-mount in de axolotl-Docker), niet op /workspace, want dat pad
+# verbergt de bewerkbare axolotl-broncode.
+output_dir: /wsout/outputs/walnoot-8b-instruct
+auto_resume_from_checkpoints: true  # zie de toelichting bij de doortraining; het startscript doet
+                                    # dezelfde integriteitscheck op het bewaarpunt vóór resume
+save_strategy: steps
+saves_per_epoch: 2
+save_total_limit: 4
+save_safetensors: true
+
+logging_steps: 5
+special_tokens:
+  pad_token: "<pad>"
+seed: 42
+
+# ---- HF hub push (het EINDmodel) ----
+# hub_model_id: WAINUT/walnoot-8b-instruct
+# Publicatie op de hub was voorzien als handmatige stap na de evaluatie; daarom staat
+# hub_model_id hierboven in commentaar.

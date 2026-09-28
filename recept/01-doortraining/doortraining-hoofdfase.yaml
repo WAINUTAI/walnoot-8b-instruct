@@ -1,0 +1,426 @@
+# Interne werknamen zijn voor publicatie vervangen door algemene woorden, in het commentaar en in
+# een pad. Verder zijn de waarden niet aangepast.
+# Dit bestand is het bewaarde plan van 6 augustus 2026 voor een nieuwe doortraining. Het uitgegeven
+# model rust er niet op maar op stap 3.816 van de productierun die op 31 juli 2026 begon; zie
+# recept/README.md. Het commentaar beschrijft grotendeels de opzet van eind juli, met 3.816 stappen
+# en een verlenging tot 7.632. Alleen max_steps en de twee paden dataset_prepared_path en output_dir
+# wijken af van de configuratie zoals zij voor het uitgegeven model draaide.
+# Waar het commentaar het interne trainingsplan, het held-outplan, het draaiboek of het
+# pretokenisatieprotocol noemt, gaat het om stukken die niet in deze repository staan.
+# =====================================================================
+# Walnoot doortraining - CPT op de PRE-TOKENIZED (map-style, "prepared") route
+# =====================================================================
+# AFGELEID van de CPT-config van de tweede proefschaal, die zelf van de eerste komt.
+# De HYPERPARAMETERS zijn byte-identiek aan de twee bewezen schalen: mbs8, ga4, seq 4096,
+# LR 2e-5, warmup_ratio 0.02, wd 0.1, max_grad_norm 1.0, GC aan, bf16/tf32, flash_attention_2,
+# geen compile, FSDP2 TRANSFORMER_BASED_WRAP op ApertusDecoderLayer, FULL_STATE_DICT, CCE-plugin,
+# seed 42, ddp_timeout 1200. De streamingroute is bewust niet gebruikt.
+#
+# BESLOTEN PARAMETERS (vastgesteld door WAINUT op 29 juli 2026; de stapgetallen zijn daarna
+# bijgesteld)
+#   CPT-tokenplafond   4B totale getrainde tokens = 3.816 steps, met een VOORWAARDELIJKE
+#                      verlenging tot maximaal 8B = 7.632 steps (zie blok VERLENGING hieronder).
+#   Curvepunten        save elke 0,5B = elke 477 steps, met een mini-eval per curvepunt
+#                      (het mini-evalscript van de curve).
+#
+# REKENWERK (tokens per step is GEMETEN, niet geschat)
+#   tokens/step  = mbs x ga x world x seq = 8 x 4 x 8 x 4096 = 1.048.576
+#   0,5B         = 477 steps    (477   x 1.048.576 =   500.170.752 tokens)
+#   4B           = 3.816 steps  (3.816 x 1.048.576 = 4.001.366.016 tokens)
+#   8B           = 7.632 steps  (7.632 x 1.048.576 = 8.002.732.032 tokens)
+#   Curvepunten bij 4B: 477, 954, 1431, 1908, 2385, 2862, 3339 en 3816. Dat zijn 8 punten en het
+#   eindpunt is er daar exact een van: 8 x 477 = 3.816 en 16 x 477 = 7.632. De cadans is dus
+#   EXACT en het eindpunt-checkpoint valt gewoon onder de normale save_steps-regel. Het verschil
+#   met de eerder genoteerde 3.815 is een enkele step en circa 1M tokens, in ruil voor een
+#   gelijkmatige reeks en een controleregel zonder tolerantie.
+#
+# EXACTE DELTA'S t.o.v. die bron, elk met zijn motivering:
+#   1. datasets.path / data_files   -> het eigen corpus (zelfde node-pad /data/corpus/cpt, verse shards)
+#   2. test_datasets                -> de BINDENDE bestandsdisjuncte, in-mix, G2-prime-gefilterde
+#                                      held-out i.p.v. de in-distributie val-split
+#                                      (zie blok HELD-OUT hieronder)
+#   3. dataset_prepared_path        -> /wsout/prepared/cpt-doortraining-prepared (cache-isolatie, oudere
+#                                      caches mogen NOOIT stil hergebruikt worden)
+#   4. output_dir                   -> een eigen outputmap voor deze fase
+#   5. max_steps 476 -> 3816        (besloten tokenplafond 4B, verlengingsroute naar 7632)
+#   6. save_steps / eval_steps 238 -> 477   (curve-cadans 0,5B)
+#   7. save_total_limit 6 -> 4      (rollende buffer; rotatie pas NA offload naar de object storage
+#                                    en verificatie van die kopie)
+#   8. lr_scheduler cosine -> constant_with_warmup  (zie blok LR-SCHEMA hieronder)
+#   9. revision_of_model            -> harde sha-pin op het basismodel
+# Geen enkele andere sleutel wijkt af. Andere hyperparameters zijn bewust gelijk gehouden aan de
+# twee proefschalen, zodat de uitkomsten vergelijkbaar blijven.
+#
+# GEBRUIK VOLGENS HET PLAN (dit zijn geen stappen om het uitgegeven model na te maken; zie
+# recept/README.md). Dezelfde yaml dient voor beide stappen:
+#   1) axolotl preprocess doortraining-hoofdfase.yaml   # schrijft Arrow naar dataset_prepared_path
+#   2) axolotl train      doortraining-hoofdfase.yaml   # laadt de Arrow-cache, traint
+# Daaraan ging een configcontrole met verify_config.py vooraf (niet meegeleverd). In de container
+# staan de data onder /data en de output onder /wsout; /workspace wordt niet gebruikt.
+#
+# ---------------------------------------------------------------------
+# LR-SCHEMA: waarom constant_with_warmup en geen cosine
+# ---------------------------------------------------------------------
+# Cosine op max_steps koppelt de LR-vorm aan het tokenplafond. Wie halverwege besluit eerder te
+# stoppen, of juist door te trainen naar 8B, vergelijkt dan curvepunten die op een ANDERE plek in
+# hun LR-schema zitten. Het tokenplafond achteraf kiezen is met cosine dus methodologisch
+# onmogelijk en precies dat achteraf kiezen is de kern van de curvepuntenreeks.
+#
+# Wat axolotl 0.17.0.dev0 hier feitelijk kan (nagelezen in de broncode van axolotl):
+#   - `lr_scheduler` is in src/axolotl/utils/schemas/training.py een VRIJE `str | None` met default
+#     "cosine", geen Literal-enum. `_configure_scheduler` in src/axolotl/core/builders/base.py geeft
+#     elke waarde behalve "one_cycle" en "rex" ONGEWIJZIGD door als HF `lr_scheduler_type`.
+#   - `lr_scheduler_kwargs` wordt eveneens ongewijzigd doorgegeven aan TrainingArguments.
+#   - Daarmee is `warmup_stable_decay` (HF SchedulerType.WARMUP_STABLE_DECAY, get_wsd_schedule)
+#     BEREIKBAAR. Die functie eist `num_decay_steps` en daarnaast `num_training_steps` of
+#     `num_stable_steps`; ontbreekt num_decay_steps, dan is het een TypeError bij de eerste stap.
+#
+# Toch NIET gekozen, om twee redenen die allebei de curve raken:
+#   (a) WSD legt het decay-venster aan het EIND van een vooraf opgegeven totaal. Verleng je van 4B
+#       naar 8B, dan verschuift dat venster en zijn de eerste acht curvepunten getraind onder een
+#       ander schema dan de laatste acht. Dat is dezelfde onvergelijkbaarheid als bij cosine.
+#   (b) WSD geeft alleen het EINDPUNT een cooldown. De tussenliggende curvepunten blijven
+#       on-gedecayed en juist die punten zijn de selectiekandidaten.
+#
+# Gekozen vorm: de W en de S van WSD staan hier (warmup gevolgd door een vlakke LR die tot het
+# einde vlak blijft) en de D staat in een APARTE config, doortraining-afbouw.yaml, die
+# per KANDIDAAT-curvepunt een korte vaste LR-cooldown draait. Dat is het alternatief uit het
+# interne trainingsplan ("elk curvepunt een vaste korte cooldown geven voordat het meedoet in de
+# vergelijking") en het is de enige vorm die zowel het achteraf kiezen als de verlenging naar 8B
+# heel laat. Prijs: een korte run per cooldown; het plan voorzag er twee.
+#
+# Gevolg voor warmup: `warmup_ratio: 0.02` blijft ongewijzigd, maar rekent op max_steps.
+# Bij 3.816 steps is dat 76 warmup-steps, bij 7.632 steps 152. Dat verschil is BETEKENISLOOS voor
+# de verlenging, want die gebeurt via RESUME vanaf het bewaarpunt waarvandaan wordt hervat
+# (checkpoint-N): op dat moment staat de LR al in de vlakke fase en is `lr_lambda` per constructie
+# 1,0, ongeacht de warmup-lengte. Alleen een verse HERSTART op 7.632 zou een andere warmup krijgen
+# en die route was uitgesloten (zie blok VERLENGING).
+#
+# ---------------------------------------------------------------------
+# HELD-OUT: waarom er precies EEN dataset in test_datasets staat
+# ---------------------------------------------------------------------
+# Een eerdere proefschaal verving de controle op kennisverlies (forgetting) stil door een val-split
+# uit dezelfde 89-procent-NL mix. Die loss daalt monotoon zolang het model Nederlands leert, dus de
+# controle kon per constructie niet afgaan. De bindende meting hoort op de APART GEHOUDEN held-out
+# te liggen, dus op de bestandsdisjuncte, in-mix, G2-prime-gefilterde set (zie de correcties van 30
+# en 31 juli bij test_datasets hieronder).
+#
+# Belangrijk en makkelijk fout te doen: axolotl CONCATENEERT alle entries in `test_datasets` tot
+# EEN eval_dataset (merge_datasets -> datasets.concatenate_datasets) en de Trainer rapporteert
+# daar EEN eval_loss over. Twee entries geven dus geen twee getallen maar een gemengd getal en dat
+# gemengde getal draagt precies de zwakte die deze keuze wil wegnemen: de dalende in-distributie-loss
+# maskeert de stijgende held-out-loss. Daarom staat hier UITSLUITEND de bindende held-out.
+#
+# De niet-bindende in-distributie val-split is niet geschrapt, hij is VERPLAATST: hij wordt per
+# curvepunt los gemeten door het mini-evalscript en het VERSCHIL tussen beide
+# reeksen is zelf het forgetting-signaal (held-out stijgt terwijl val daalt).
+# De configcontrole dwong af dat test_datasets exact een entry heeft en dat dat de held-out is.
+# ---------------------------------------------------------------------
+
+# ---- Basismodel: hard gepind op de sha uit de interne lijst met basismodellen. ----
+# `revision_of_model` is de axolotl-sleutel die de revisie doorgeeft aan AutoConfig.from_pretrained,
+# aan model.from_pretrained EN aan de tokenizer-load (src/axolotl/loaders/utils.py, model.py,
+# tokenizer.py). Deze config zet GEEN aparte `tokenizer_config`, dus model en tokenizer komen
+# gegarandeerd van dezelfde revisie. Het plan schreef voor de sha in de voorbereidingsweek opnieuw
+# te controleren en hem bij een verschuiving hier en in de interne lijst met basismodellen
+# tegelijk bij te werken.
+# Uit de planfase, voor een eventuele latere merge-stap. Mergekit zou dan niet op HF-ids draaien
+# maar op lokale, op sha gepinde snapshotpaden (de HF-cache-map .../snapshots/<sha>/), zodat de
+# merge-invoer niet stil kon verschuiven tussen CPT en merge.
+base_model: swiss-ai/Apertus-8B-2509
+revision_of_model: 3162c99675aa588097cecd4a24b9aa1f712af477
+trust_remote_code: false
+
+plugins:
+  - axolotl.integrations.cut_cross_entropy.CutCrossEntropyPlugin
+
+# ---- Data: MAP-STYLE, type completion (de non-streaming pretraining-route). ----
+# De axolotl `preprocess`-CLI WEIGERT te draaien als `pretraining_dataset` gezet is
+# (src/axolotl/cli/preprocess.py:49-55: "preprocess is not needed"); de vooraf-getokeniseerde
+# route MOET daarom via `datasets:` met `type: completion`. `field: text` zegt completion welke kolom
+# de ruwe tekst bevat (schemas/datasets.py:101-106). Completion tokeniseert elk document en
+# hakt het in stukken van sequence_len (prompt_strategies/completion.py). De multipack-sampler
+# pakt die stukken pas TIJDENS de training block-diagonaal samen.
+# LET OP: data_files MOET een ABSOLUUT pad/glob zijn (relatieve glob -> StopIteration).
+# Het node-corpuspad is /data/corpus/cpt (het ophaalscript --dest-dir landt hier).
+# Het shard-aantal is op deze route irrelevant voor NCCL (min-over-ranks-sampler). De datacontrole
+# eiste tot 30 juli 2026 daarnaast een veelvoud van 8 als zelfstandige symmetrie-eis; die eis is bij
+# besluit van WAINUT VERVALLEN, want hij was een streaming-artefact uit een eerdere proefschaal en
+# hield een gezonde run tegen (gemeten 11 shards op het pauzepunt, 115 tot 118 aan het eind).
+# Daarna controleerde de configcontrole alleen dat het shardaantal groter is dan nul en
+# minstens gelijk aan dataset_num_proc hieronder, zodat elke preprocess-worker bestanden krijgt.
+# Vereist zijn ds_type json en type completion; `pretrain` en `pretraining_dataset` worden niet
+# gebruikt.
+datasets:
+  - path: /data/corpus/cpt
+    data_files:
+      - "/data/corpus/cpt/shard-*.jsonl"
+    ds_type: json
+    type: completion
+    field: text
+    split: train
+
+# ---- Prepared-cache (Arrow via datasets.save_to_disk). ----
+# axolotl schrijft de getokeniseerde+gepakte set naar <dataset_prepared_path>/<config-hash>
+# (src/axolotl/utils/data/shared.py:366-367,431,440). Dit pad staat expliciet gezet (leeg =
+# last_run_prepared, die de cache NEGEERT). Een eigen pad voor deze fase, zodat geen cache van een
+# eerdere proefschaal ooit stil hergebruikt wordt.
+dataset_prepared_path: /wsout/prepared/cpt-doortraining-prepared
+
+# ---- RAM-rem op de tokenisatie. ----
+# dataset_num_proc default = os.cpu_count() (src/axolotl/utils/datasets.py:10-21). Op een
+# vele-cores-node zijn dat tientallen processen die elk boekgrote docs tokeniseren -> OOM.
+# Begrensd op 8. `dataset_processes` is de deprecated alias (schemas/config.py:412-430,1971-1987).
+dataset_num_proc: 8
+# Extra RAM-veiligheid voor als preprocess alsnog piekt op boekgrote docs. preprocess_shards
+# verwerkt de set in N sequentiele shards (schemas/datasets.py:69-74). De regel staat uit en was
+# bedoeld om na een meting op de kalibratieset aan te zetten.
+# preprocess_shards: 8
+
+# ---- BINDENDE held-out voor de forgetting-eval TIJDENS de run (per curvepunt) ----
+# Dit is de bestandsdisjuncte, in-mix, G2-prime-gefilterde held-out uit de dataprep
+# (`heldout_en_code.jsonl`),
+# gebouwd uit de gereserveerde held-out-tails over de assen EN, EN-academisch en code.
+# CORRECTIE 30 juli 2026: hier stond "de 25 gereserveerde held-out-tails". Dat zijn er VIJFTIEN,
+# vijf per as. De overige tien horen bij `american-stories`, `cc_loc-pd-books` en `cc_german-pd`,
+# die als held-out-bron zijn vervallen (uitgesloten in de trainmix; een as op een uitgesloten bron
+# is perfect disjunct en juist daarom waardeloos). Zie het interne held-outplan en het amendement
+# op de held-outplafonds van 30 juli 2026 (beide niet meegeleverd).
+# Deze correctie raakte alleen het commentaar.
+# CORRECTIE 31 juli 2026: hier stond dat de disjunctheid is AANGETOOND met de 13-gram-decontamcheck
+# uit poort G2. Dat is onjuist en die formulering is teruggetrokken. De kale 13-gram-run met drempel 0
+# tegen de shardset is de letterlijke G2-conditie 4 en die staat op FAIL: de unie van de treffers
+# raakt 2.754 van de 6.244 held-out-records (44,11 procent). Dat verdict blijft staan en wordt niet
+# herroepen. De set wordt gesnoeid onder het zichtbare post-failure-amendement G2-prime (route C),
+# verdict PASS_AMENDED_G2PRIME. Wat WEL vaststaat is bestandsdisjunctheid (aparte bronbestanden op
+# `exclude_files`, geen byte-overlap met de trainshards) plus de G2-prime-filtering; kale
+# 13-gram-disjunctheid is NIET bewezen. Bestandsnaam-disjunctheid alleen volstaat sowieso niet
+# (near-dup PD-herdrukken lekken over bestandsgrenzen heen).
+# Regels, beslisboom en route: `decontaminatie/beslisregel.md` in deze repository.
+# De controle voor de verlenging rekende hiertegen, met als grens de held-out-eval-loss van step 0
+# plus 5 procent. De step-0-waarde kwam uit de meting op het kale basismodel, want `eval_on_start`
+# is in axolotl 0.17 NIET geplumbed.
+# type MOET 'completion' zijn (NIET 'pretrain' -> KeyError: 'labels').
+# PADSTATUS op 31 juli 2026 (hier stond eerder "bestaat nog niet"). Het bestand bestond, gebouwd
+# door het held-outbouwscript uit de gereserveerde tails. Het plan was niet de kale bouwuitvoer
+# maar de G2-prime-gesnoeide set onder dezelfde naam op dit pad te zetten, met het ophaalscript.
+test_datasets:
+  - path: /data/corpus/heldout/heldout_en_code.jsonl   # de held-out van de productierun van 31 juli, waarop het uitgegeven model rust
+    ds_type: json
+    type: completion
+    field: text
+    split: train
+# NIET-BINDENDE in-distributie val-split, BEWUST NIET hier. Zou hij hier staan, dan wordt hij met de
+# held-out geconcateneerd tot een enkele eval_loss en is het bindende signaal weg (zie blok HELD-OUT).
+# Hij wordt per curvepunt los gemeten:
+#   het mini-evalscript ... --val-jsonl /data/corpus/cpt/val.jsonl
+
+# ---- Sequence / packing ----
+sequence_len: 4096
+sample_packing: true                # block-diagonaal multipack; op de prepared route de min-over-ranks-sampler
+pad_to_sequence_len: true
+# sample_packing_group_size: 100000 # standaardwaarden (schemas/config.py:671-682), niet aangepast
+# sample_packing_bin_size: 200
+ddp_timeout: 1200                   # dekt eval + FULL_STATE_DICT-save ruim; halveert hang-kosten
+
+# ---- Batch / stappen ----
+# tokens/step = mbs*ga*world*seq = 8*4*8*4096 = 1.048.576 (~1,05M). Op de gepakte route hangt het
+# WERKELIJKE aantal tokens/step aan de packing-efficiency (gelogd als sample_packing_eff); ~0,95+ bij
+# tekstpretraining. Het plan vroeg dit op de compute node te controleren en het voorbereide
+# tokenbudget minstens zo groot te houden als het trainbudget, zodat de run BINNEN EEN epoch blijft
+# (geen cross-epoch shuffle-reseed die resume compliceert). Bij 4B
+# betekent dat een corpus van minstens circa 4B unieke tokens, of een bewust geregistreerd aantal
+# epochs; het referentiepunt van de vorige proefschaal draaide op circa 1,42 epochs.
+micro_batch_size: 8                 # winnaar van de doorvoerproef
+gradient_accumulation_steps: 4
+max_steps: 3339                     # hoofdfase 7 x 477; de resterende 477 stappen zijn de cooldown (doortraining-afbouw.yaml)
+
+# ---------------------------------------------------------------------
+# VERLENGING naar 8B (7.632 steps) - voorwaardelijk en alleen via RESUME
+# ---------------------------------------------------------------------
+# De verlenging is architecturaal ondersteund doordat de LR na de warmup VLAK is: een curvepunt op
+# stap 2385 is onder max_steps 3816 exact hetzelfde punt als onder max_steps 7632. Er is dus geen
+# enkele reden om curvepunten opnieuw te draaien en er ontstaat geen breuk in de reeks.
+#
+# ZO WAS DE VERLENGING VOORGESCHREVEN:
+#   1. max_steps naar 7632 in dit bestand, met save_steps, LR, warmup_ratio en seed ongewijzigd.
+#   2. data_files en dataset_prepared_path letterlijk gelijk, want een wijziging daar verandert de
+#      axolotl-config-hash en maakt de Arrow-cache ongeldig, waarna de resume op een andere
+#      dataset-index landt. Een regel in het interne draaiboek die iets anders zei, kwam uit de
+#      streamingroute en gold hier niet.
+#   3. Hervatten vanaf het laatste bewaarpunt (`auto_resume_from_checkpoints: true` pakt het
+#      automatisch), na een integriteitscheck op trainer_state.json en de gewichten.
+#   4. Daarna opnieuw de configcontrole. Die accepteerde voor max_steps uitsluitend 3816 of 7632 en
+#      eiste dat max_steps een EXACT veelvoud van save_steps is. Dat gold voor de opzet van eind
+#      juli; de waarde 3339 op max_steps komt uit het latere plan.
+#   Een verse herstart op 7632 was uitgesloten, want dan wordt de warmup 152 in plaats van 76 steps
+#   en zijn de eerste curvepunten niet meer die van de 4B-run.
+#
+# VOORWAARDEN, alle VIER hard, alle vier VOORAF te toetsen (besluit 29 juli;
+# "alle drie" was een telfout, gecorrigeerd 31 juli, want voorwaarde (d) hoorde er volgens
+# het interne trainingsplan altijd al bij):
+#   (a) Winst boven de gemeten ruisband op de LAATSTE TWEE curvepunten van de mini-suite. Twee
+#       opeenvolgende punten zonder winst beeindigen de CPT juist (early-stoppingregel). Beide
+#       punten moeten daadwerkelijk een mini-eval hebben gehad, volgens de mini-eval-cadans uit
+#       het interne trainingsplan.
+#   (b) MMLU-nl en HellaSwag-nl blijven binnen het bevroren interval van kaal Apertus-8B-base
+#       (een vooraf vastgelegde voorwaarde). Let op het regime: de mini-suite meet val/N en die intervallen zijn
+#       test/10; de vergelijking loopt via de step-0-anker-delta uit het mini-evalscript en niet
+#       rechtstreeks tegen de test/10-getallen.
+#   (c) Checkpoint-offload naar de object storage EN de rescue-procedure zijn BEWEZEN, niet
+#       beschreven. Dit is de
+#       hardste voorwaarde: voorbij circa 5,5B overschrijdt de CPT-duur alleen al de langst bewezen
+#       aaneengesloten instance-duur van 53,4 uur (eerste proefschaal, 17-19 juli). Zonder bewezen rescue is de
+#       verlenging een weddenschap op hardware die nog nooit zo lang heeft gedraaid.
+#   (d) Een voorwaarde over het rekenbudget, vastgelegd in interne stukken die niet zijn
+#       meegeleverd.
+#
+#   UITKOMST. De productierun is voortgezet tot stap 7.632. Het uitgegeven model rust op het
+#   bewaarpunt bij stap 3.816 met een cooldown van 64 stappen; zie recept/README.md.
+# ---------------------------------------------------------------------
+
+# ---- Optimizer / LR ----
+# LR, warmup_ratio, wd, grad-norm en optimizer zijn byte-identiek aan de twee bewezen proefschalen.
+# ALLEEN lr_scheduler wijkt af (cosine -> constant_with_warmup); motivering in het blok LR-SCHEMA.
+# `constant_with_warmup` is een standaard HF SchedulerType en heeft GEEN lr_scheduler_kwargs nodig.
+optimizer: adamw_torch_fused
+learning_rate: 2.0e-5
+lr_scheduler: constant_with_warmup   # WSD-vorm: W+S hier, D in doortraining-afbouw.yaml
+warmup_ratio: 0.02                   # 76 steps bij 3816; 152 bij 7632 (irrelevant bij resume, zie blok)
+weight_decay: 0.1                    # GLOBAAL, embeddings inbegrepen. Zie het blok hieronder.
+max_grad_norm: 1.0
+
+# ---- Embedding-weight-decay: bewust GEEN uitzondering (beslecht 30 juli 2026) ----
+# Volledige onderbouwing in een intern besluit over embedding-weight-decay, niet meegeleverd.
+# Samengevat:
+#   - axolotl v0.17.0 heeft GEEN weight-decay-override. Het heeft wel een embedding-parametergroep
+#     met weight_decay 0.0 (core/trainers/mixins/optimizer.py:45-48,72-84), maar create_optimizer
+#     valt terug op het HF-standaardpad zolang embedding_lr_scale, embedding_lr, lr_groups en
+#     loraplus_lr_ratio alle vier None zijn (:107-115). De uitzondering is dus bereikbaar met de
+#     regel `embedding_lr_scale: 1.0`, die de LR onaangeroerd laat (regel 75 doet lr *= 1.0).
+#   - Toch niet gedaan. AdamW decayt per stap met (1 - lr*wd) = 1 - 2e-6. Over 3.816 stappen is dat
+#     0,76% krimp van de embedding-norm, over 7.632 stappen 1,5%. De OLMo2/SmolLM3-les komt uit
+#     runs met miljoenen stappen. Er kantelt op onze schaal geen enkele beslissing op.
+#   - De prijs is wel echt: het verlegt de optimizer-constructie naar een pad dat geen van de
+#     eerdere proefschalen ooit gedraaid heeft en het maakt drie parametergroepen in plaats van twee. Een optimizer
+#     state dict met een afwijkend aantal groepen wordt door torch geweigerd, dus elke resume en
+#     juist de 4B-naar-8B-verlenging zou aan die sleutel vastzitten.
+# De configcontrole weigerde embedding_lr, embedding_lr_scale, lr_groups en loraplus_lr_ratio;
+# deze sleutels zijn bewust weggelaten.
+
+# ---- Precisie / geheugen (identiek) ----
+bf16: true
+tf32: true
+gradient_checkpointing: true
+attn_implementation: flash_attention_2
+
+# ---- Distributie: FSDP2 (identiek aan de bewezen twee schalen) ----
+fsdp_version: 2
+fsdp_config:
+  offload_params: false
+  cpu_ram_efficient_loading: true
+  auto_wrap_policy: TRANSFORMER_BASED_WRAP
+  transformer_layer_cls_to_wrap: ApertusDecoderLayer
+  state_dict_type: FULL_STATE_DICT
+  reshard_after_forward: true
+
+# ---- In-run forgetting-eval op de BINDENDE held-out, per curvepunt ----
+eval_steps: 477                     # == save_steps: elk curvepunt krijgt zijn held-out-loss
+
+# ---- Checkpoints en curvepunten ----
+output_dir: /wsout/outputs/v2-hoofdfase    # een eigen outputmap, gescheiden van die van de productierun van 31 juli
+save_strategy: steps
+save_steps: 477                     # curve-cadans 0,5B (besluit van WAINUT, 29 juli)
+# ROLLENDE BUFFER VAN 4. Elk checkpoint is circa 96 GB resume-state; 4 tegelijk is
+# circa 384 GB op de NVMe, plus jsonl plus Arrow. Bij 8 curvepunten passen ze NIET allemaal, dus
+# rotatie is onvermijdelijk en de offload is geen nazorg maar een voorwaarde.
+# transformers roteert direct in _save_checkpoint via rotate_checkpoints en beschermt
+# alleen de nieuwste en de best_model_checkpoint. Er is dus GEEN ingebouwde rem. Daarom was
+# vastgelegd dat het offloadscript elk compleet bewaarpunt naar de object storage kopieerde en de
+# sha256 na terugdownload controleerde voordat de volgende save draaide. Een curvepunt dat zonder
+# gecontroleerde kopie in de object storage werd weggeroteerd, was definitief weg en daarmee verviel
+# zowel de verlengingsvoorwaarde over de offload als het herstelpad "terug naar het laatste groene
+# curvepunt".
+save_total_limit: 4
+save_safetensors: true
+auto_resume_from_checkpoints: true  # integriteitscheck (config.json + trainer_state.json) draait in de driver
+# ignore_data_skip: GEEN werkende knop in axolotl 0.17.0 -- niet in de TrainingArguments-whitelist
+# (core/builders/base.py); Pydantic (extra=ignore) dropt de key stil. HF-default false (skip aan =
+# positie-exacte resume) geldt dus altijd; alleen curriculum_sampling is een echte hendel
+# (zie het interne pretokenisatieprotocol).
+
+# ---- Logging ----
+logging_steps: 5
+
+# ---- Tokens / seed ----
+special_tokens:
+  pad_token: "<pad>"                # id 3, bestaat al in vocab -> geen resize
+seed: 42
+
+# =====================================================================
+# OPTIONELE RESUME-HARDING (beslecht met de rescue-repetitie in de voorbereidingsfase)
+# ---------------------------------------------------------------------
+# De standaard hierboven gebruikt RandomSampler (base.py:197) -> shuffle per epoch en de
+# positie-exactheid van resume leunt op HF-Trainer's RNG-state-restore. De rescue-repetitie in
+# de voorbereidingsfase (kill rond stap 50, checkpoint uit de object storage terug, hervatten,
+# samplepositie vergelijken) is de METING die dit besluit neemt. Volgens het plan ging
+# onderstaande regel aan als de resume bij die proef niet positie-exact bleek. In dit bestand
+# staat hij uit.
+# curriculum_sampling maakt de basis-sampler SequentialSampler (base.py:194-195) -> volledig
+# DETERMINISTISCHE, RNG-ONAFHANKELIJKE volgorde, waardoor skip_first_batches gegarandeerd op exact
+# de volgende ongeziene pack landt. Prijs: geen shuffle over de (enkele) epoch.
+# (doorgehaalde oude rechtvaardiging) acceptabel omdat het corpus al bij de prep geschud is
+# CORRECTIE 30 juli 2026: die rechtvaardiging is ONJUIST. Er is GEEN globale shuffle bij de prep.
+# Wat er wel is: een streaming shuffle-buffer van 100 BINNEN een subset (`shuffle_buffer: 100`,
+# de interne datamixconfiguratie, `_buffered_shuffle` in `prepare_data.py`) plus een
+# DETERMINISTISCHE round-robin over de subsets. Daar komt bij dat registergroepen de leesstroom
+# vroeg verlaten zodra ze hun plafond raken (leesgewicht 0), waardoor de NL-staart van het corpus
+# naar vrijwel zuiver `youtube-commons` schuift. De bouwvolgorde is dus systematisch, niet geschud.
+# GEVOLG: `curriculum_sampling` (SequentialSampler) maakt de BOUWvolgorde tot TRAININGSvolgorde en
+# de prijs is een niet-stationaire datadistributie over de run. De builder rapporteert die
+# compositiedrift nu per 0,5B-tokenprefix (`SubsetPrefixTeller` in `prepare_data.py`, veld
+# `subset_drift_per_prefix` in `dataprep_report.json`; rapportage, geen poort). Deze knop aanzetten
+# in de PRODUCTIETRAINING vergt daarom eerst een schone drift-rapportage en een expliciet besluit;
+# hij is geen gratis resume-verzekering. De instelling zelf is met deze noot NIET gewijzigd en
+# blijft uit (de regel `curriculum_sampling: true` hieronder staat nog steeds in comment).
+#
+# AANVULLING 31 juli 2026. De CORRECTIE hierboven klopt over ONZE prep, maar mist wie de
+# shuffle wel levert: dat is axolotl zelf, op zijn DEFAULTPAD, in twee lagen.
+#   1. Preprocess-tijd, gebakken in de Arrow-cache. `merge_datasets` (utils/data/shared.py) neemt
+#      bij EEN dataset-entry (ons geval, zie het `datasets:`-blok) de tak
+#          if cfg.curriculum_sampling or not cfg.shuffle_merged_datasets: return ds
+#          return ds.shuffle(seed=cfg.seed)
+#      Die tak OOGT als een early return die de shuffle overslaat, maar hij schudt juist wel zolang
+#      beide vlaggen zwijgen. `ds.shuffle` is een volledige permutatie van de rij-index over de hele
+#      set, geen buffer. `shuffle_merged_datasets` staat hier niet en valt terug op de default true;
+#      die EFFECTIEVE waarde is afgelezen uit de resolved config-dumps van drie eigen runs op de
+#      gepinde image (drie trainlogs van eigen proefruns).
+#   2. Train-tijd, per epoch. `_get_train_sampler` (core/trainers/base.py) geeft RandomSampler over
+#      de hele prepared set zolang curriculum_sampling uit staat; MultipackBatchSampler wrapt die
+#      basis-sampler met group_size = sample_packing_group_size (resolved 100000).
+# De scheve bouwvolgorde is dus GEEN trainingsvolgorde zolang deze config ongewijzigd blijft.
+#
+# GEVOLG voor de waarschuwing hierboven: die geldt in volle zwaarte alleen als curriculum_sampling
+# omgaat VOOR de `axolotl preprocess`. Dan verdwijnen laag 1 en laag 2 tegelijk. Gaat hij pas NA een
+# geslaagde preprocess om, dan loopt SequentialSampler over een AL gepermuteerde index en is alleen
+# laag 2 weg. Dat verschil is groot genoeg om de volgorde van handelen bindend te maken.
+# Niet gemeten en daarom voorzichtig behandeld is de vraag of `curriculum_sampling` meetelt in de
+# axolotl-cachesleutel. Telt hij mee, dan invalideert omzetten deze cache en bouwt de verse
+# preprocess alsnog een ONGESCHUDDE set, waarmee het milde geval het schadelijke wordt. Het plan was
+# de cache opnieuw te toetsen voordat de training start. (Zelfde open vraag als voor `seed`.)
+# De configcontrole bewaakte beide vlaggen sinds 31 juli 2026 en weigerde bij twijfel.
+# De twee toetsen zijn OPZETTELIJK asymmetrisch, omdat axolotl ze in dezelfde conditie verschillend
+# leest. `curriculum_sampling` wordt TRUTHY getoetst (rood zodra hij aan staat; expliciet false, 0 of
+# null zijn onschadelijk en blijven groen). `shuffle_merged_datasets` wordt PRESENCE-BASED getoetst:
+# afwezig = goed, aanwezig en niet letterlijk `true` = rood. Dat laatste omdat axolotl de NEGATIE
+# leest, zodat OOK `0` en een expliciete `null` de preprocess-shuffle overslaan; een toets op alleen
+# `is False` liet die twee door (bevinding van de tegenlezer, 31 juli 2026).
+# Terzijde, feitelijke correctie op de regel hierboven: het veld in `dataprep_report.json` heet
+# `_subset_drift_per_prefix` met leidende underscore, niet `subset_drift_per_prefix`.
+# LET OP: `sample_packing_sequentially` ALLEEN volstaat NIET (dat
+# laat de basis-sampler random; multipack.py:300-303 waarschuwt daar zelf voor).
+# Deze knop kan alleen voor stap 0 om, want hij verandert de datavolgorde.
+# curriculum_sampling: true
+#
+# HUB-PUSH: `hub_model_id` staat hier bewust NIET. Automatisch pushen tijdens de productierun was
+# uitgesloten. De publicatie was voorzien als handmatige stap na de controles.

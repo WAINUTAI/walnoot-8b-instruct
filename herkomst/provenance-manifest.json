@@ -1,0 +1,392 @@
+{
+  "gegenereerd": "2026-07-31 01:07:02",
+  "modus": "volledig",
+  "repo_id": "GPT-NL/GPT-NL_Public_Corpus",
+  "token_budget": 8000000000,
+  "mix_fracties": {
+    "nl": 0.7000000000000001,
+    "en": 0.20000000000000004,
+    "code": 0.10000000000000002
+  },
+  "out_dir": "/data/corpus/cpt",
+  "totaal_shards": 116,
+  "train_docs": 3448292,
+  "train_chars": 29240230710,
+  "val_docs": 5451,
+  "subsets": {
+    "auditdienstrijk": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 55,
+      "chars": 2229835,
+      "geschatte_tokens": 704306,
+      "licenties": [
+        "public-domain"
+      ],
+      "dataset_name": "Auditdienst Rijk",
+      "dataset_url": "https://www.auditdienstrijk.nl/"
+    },
+    "belgian-journal": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 12825,
+      "chars": 195030398,
+      "geschatte_tokens": 61601515,
+      "licenties": [
+        "CC-0 1.0"
+      ],
+      "dataset_name": "Belgian Journal",
+      "dataset_url": "https://www.ejustice.just.fgov.be/"
+    },
+    "cc_english-pd": {
+      "bucket": "en",
+      "tier": 2,
+      "docs": 100753,
+      "chars": 3732666273,
+      "geschatte_tokens": 992466437,
+      "licenties": [
+        "Public Domain"
+      ],
+      "dataset_name": "CC-English-PD",
+      "dataset_url": "https://huggingface.co/datasets/PleIAs/common_corpus"
+    },
+    "cc_github_open_source": {
+      "bucket": "code",
+      "tier": 2,
+      "docs": 849377,
+      "chars": 3167120205,
+      "geschatte_tokens": 880000056,
+      "licenties": [
+        "Apache-2.0",
+        "Apache-2.0, MIT",
+        "BSD-2-Clause",
+        "BSD-3-Clause",
+        "CC-BY-4.0",
+        "CC0-1.0",
+        "MIT",
+        "Unlicense"
+      ],
+      "dataset_name": "CC-Github Code",
+      "dataset_url": "https://huggingface.co/datasets/PleIAs/common_corpus"
+    },
+    "cc_loc-pd-books": {
+      "bucket": "en",
+      "tier": 2,
+      "docs": 65933,
+      "chars": 2343159956,
+      "geschatte_tokens": 623015143,
+      "licenties": [
+        "Public Domain"
+      ],
+      "dataset_name": "CC-Loc-PD-Books",
+      "dataset_url": "https://huggingface.co/datasets/PleIAs/common_corpus"
+    },
+    "cc_openalex": {
+      "bucket": "en",
+      "tier": 2,
+      "docs": 9585,
+      "chars": 529590488,
+      "geschatte_tokens": 140811084,
+      "licenties": [
+        "CC-By",
+        "Public Domain"
+      ],
+      "dataset_name": "CC-German-PD",
+      "dataset_url": "https://huggingface.co/datasets/PleIAs/common_corpus"
+    },
+    "common-crawl": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 19727,
+      "chars": 48331867,
+      "geschatte_tokens": 15265908,
+      "licenties": [
+        "CC-BY-4.0"
+      ],
+      "dataset_name": "C5 Filtered",
+      "dataset_url": "https://commoncrawl.org/"
+    },
+    "dansknaw": {
+      "bucket": "nl",
+      "tier": 1,
+      "docs": 20305,
+      "chars": 40495440,
+      "geschatte_tokens": 12790726,
+      "licenties": [
+        "CC-0 1.0"
+      ],
+      "dataset_name": "DANS-KNAW",
+      "dataset_url": "https://dans.knaw.nl/"
+    },
+    "dpc": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 50114,
+      "chars": 140937494,
+      "geschatte_tokens": 44515948,
+      "licenties": [
+        "CC-0 1.0"
+      ],
+      "dataset_name": "Dienst Publiek en Communicatie",
+      "dataset_url": "https://www.rijksoverheid.nl/ministeries/ministerie-van-algemene-zaken/organisatie/organogram/dienst-publiek-en-communicatie"
+    },
+    "european-parliament": {
+      "bucket": "nl",
+      "tier": 1,
+      "docs": 22,
+      "chars": 9084435,
+      "geschatte_tokens": 2869373,
+      "licenties": [
+        "CC-BY"
+      ],
+      "dataset_name": "European Parliament",
+      "dataset_url": "https://www.europarl.europa.eu/plenary/nl/minutes.html"
+    },
+    "kb": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 598,
+      "chars": 97841115,
+      "geschatte_tokens": 30903700,
+      "licenties": [
+        "public-domain"
+      ],
+      "dataset_name": "Koninklijke Bibliotheek",
+      "dataset_url": "to_be.determined"
+    },
+    "kb-pd-books": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 233,
+      "chars": 264918907,
+      "geschatte_tokens": 83676218,
+      "licenties": [
+        "Public domain"
+      ],
+      "dataset_name": "Koninklijke Bibliotheek",
+      "dataset_url": "http://resolver.kb.nl/"
+    },
+    "multi-eurlex": {
+      "bucket": "nl",
+      "tier": 1,
+      "docs": 13868,
+      "chars": 148066788,
+      "geschatte_tokens": 46767778,
+      "licenties": [
+        "CC-BY-4.0"
+      ],
+      "dataset_name": "Eurlex",
+      "dataset_url": "https://huggingface.co/datasets/coastalcph/multi_eurlex"
+    },
+    "nationaal-archief": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 97511,
+      "chars": 195027013,
+      "geschatte_tokens": 61600446,
+      "licenties": [
+        "Public domain"
+      ],
+      "dataset_name": "Nationaal Archief",
+      "dataset_url": "https://www.nationaalarchief.nl/"
+    },
+    "naturalis": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 237,
+      "chars": 7646642,
+      "geschatte_tokens": 2415237,
+      "licenties": [
+        "CC-BY"
+      ],
+      "dataset_name": "Naturalis",
+      "dataset_url": "https://repository.naturalis.nl"
+    },
+    "noordhollandsarchief": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 7995,
+      "chars": 19665249,
+      "geschatte_tokens": 6211386,
+      "licenties": [
+        "unknown"
+      ],
+      "dataset_name": "Noord-Hollands Archief",
+      "dataset_url": ""
+    },
+    "officiele-bekendmakingen": {
+      "bucket": "nl",
+      "tier": 1,
+      "docs": 230522,
+      "chars": 1144814718,
+      "geschatte_tokens": 361596562,
+      "licenties": [
+        "public-domain"
+      ],
+      "dataset_name": "Officiele Bekendmakingen",
+      "dataset_url": "https://www.officielebekendmakingen.nl"
+    },
+    "openraadsinformatie-part1": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 191880,
+      "chars": 3752197211,
+      "geschatte_tokens": 1185153888,
+      "licenties": [
+        "public-domain"
+      ],
+      "dataset_name": "Openraadsinformatie",
+      "dataset_url": "https://www.openraadsinformatie.nl/"
+    },
+    "openraadsinformatie-part2": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 130353,
+      "chars": 2087102437,
+      "geschatte_tokens": 659223764,
+      "licenties": [
+        "public-domain"
+      ],
+      "dataset_name": "Openraadsinformatie",
+      "dataset_url": "https://www.openraadsinformatie.nl/"
+    },
+    "pbl": {
+      "bucket": "nl",
+      "tier": 1,
+      "docs": 344,
+      "chars": 58816617,
+      "geschatte_tokens": 18577579,
+      "licenties": [
+        "CC-BY"
+      ],
+      "dataset_name": "PBL",
+      "dataset_url": "https://www.pbl.nl/publicaties/"
+    },
+    "rechtspraak": {
+      "bucket": "nl",
+      "tier": 1,
+      "docs": 90065,
+      "chars": 1012423063,
+      "geschatte_tokens": 319779868,
+      "licenties": [
+        "public-domain"
+      ],
+      "dataset_name": "De Rechtspraak",
+      "dataset_url": "https://www.rechtspraak.nl/"
+    },
+    "tweedekamer": {
+      "bucket": "nl",
+      "tier": 1,
+      "docs": 23829,
+      "chars": 585669186,
+      "geschatte_tokens": 184987108,
+      "licenties": [
+        "public-domain"
+      ],
+      "dataset_name": "Tweede Kamer",
+      "dataset_url": "https://opendata.tweedekamer.nl/"
+    },
+    "utrechts-archief": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 73174,
+      "chars": 97513872,
+      "geschatte_tokens": 30800338,
+      "licenties": [
+        "unknown"
+      ],
+      "dataset_name": "Utrechts Archief",
+      "dataset_url": "https://hetutrechtsarchief.nl/onderzoek/collecties"
+    },
+    "wikidata": {
+      "bucket": "nl",
+      "tier": 1,
+      "docs": 460654,
+      "chars": 137988132,
+      "geschatte_tokens": 43584375,
+      "licenties": [
+        "CC0-1.0"
+      ],
+      "dataset_name": "Wikidata-Synth",
+      "dataset_url": "https://www.wikidata.org/"
+    },
+    "wikiwijs": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 7904,
+      "chars": 8129585,
+      "geschatte_tokens": 2567777,
+      "licenties": [
+        "CC-BY"
+      ],
+      "dataset_name": "Wikiwijs",
+      "dataset_url": "https://www.wikiwijs.nl/"
+    },
+    "woogle": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 106660,
+      "chars": 305201458,
+      "geschatte_tokens": 96399702,
+      "licenties": [
+        "Public domain"
+      ],
+      "dataset_name": "Woogle",
+      "dataset_url": "https://wooverheid.nl/2023/05/12/woogle-data-nu-vrij-beschikbaar/"
+    },
+    "youtube-commons": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 576454,
+      "chars": 8563896056,
+      "geschatte_tokens": 2704957692,
+      "licenties": [
+        "CC-BY"
+      ],
+      "dataset_name": "YouTube-Commons-Synth",
+      "dataset_url": "https://huggingface.co/datasets/PleIAs/YouTube-Commons"
+    },
+    "zeeuws-archief": {
+      "bucket": "nl",
+      "tier": 2,
+      "docs": 1661,
+      "chars": 7710426,
+      "geschatte_tokens": 2435384,
+      "licenties": [
+        "Public domain"
+      ],
+      "dataset_name": "Zeeuws Archief",
+      "dataset_url": "https://zeeuwsarchief.nl/"
+    }
+  },
+  "reads_per_subset": {
+    "auditdienstrijk": 560,
+    "belgian-journal": 177764,
+    "cc_english-pd": 1037521,
+    "cc_github_open_source": 1037521,
+    "cc_loc-pd-books": 390842,
+    "cc_openalex": 391057,
+    "common-crawl": 63519,
+    "dansknaw": 57104,
+    "dpc": 127715,
+    "european-parliament": 983,
+    "kb": 6705,
+    "kb-pd-books": 2250,
+    "multi-eurlex": 178348,
+    "nationaal-archief": 248194,
+    "naturalis": 12430,
+    "noordhollandsarchief": 38755,
+    "officiele-bekendmakingen": 522812,
+    "openraadsinformatie-part1": 522812,
+    "openraadsinformatie-part2": 522811,
+    "pbl": 489,
+    "rechtspraak": 498548,
+    "tweedekamer": 233676,
+    "utrechts-archief": 358319,
+    "wikidata": 1037521,
+    "wikiwijs": 124501,
+    "woogle": 522811,
+    "youtube-commons": 1037521,
+    "zeeuws-archief": 33897
+  }
+}

@@ -1,0 +1,440 @@
+{
+ "stuk": "uitslag-per-taak",
+ "versie": "vergelijking-b/1",
+ "model": "walnoot",
+ "bestand": "het scorebestand van deze meetronde, niet meegeleverd; checksum in bestand_sha256",
+ "bestand_sha256": "2f213429275fce440207aa92cafd2209d9367afaeed695dcc232561e9dea5870",
+ "referentie": "de voorganger, het model na de instructietraining; zijn scorebestand is niet meegeleverd, checksum in referentie_sha256",
+ "referentie_sha256": "361272c5f4add9b23b82cc7492d3c07e7145c8c98a95ce74be158f1b38b48d38",
+ "wc1": {
+  "noemer": 6,
+  "uitslag": "5-0-1",
+  "referentie_uitslag": "5-0-1",
+  "per_taak": [
+   {
+    "taak": "dbrd",
+    "metriek": "mcc",
+    "publicatie": 90.0,
+    "waarde": 90.5578,
+    "interval": [
+     89.7617,
+     91.354
+    ],
+    "uitslag": "gelijk"
+   },
+   {
+    "taak": "scala-nl",
+    "metriek": "mcc",
+    "publicatie": 19.0,
+    "waarde": 34.4078,
+    "interval": [
+     31.0021,
+     37.8135
+    ],
+    "uitslag": "win"
+   },
+   {
+    "taak": "conll-nl",
+    "metriek": "micro_f1_no_misc",
+    "publicatie": 36.0,
+    "waarde": 46.5178,
+    "interval": [
+     44.4888,
+     48.5469
+    ],
+    "uitslag": "win"
+   },
+   {
+    "taak": "squad-nl",
+    "metriek": "em",
+    "publicatie": 51.0,
+    "waarde": 62.0765,
+    "interval": [
+     61.4237,
+     62.7292
+    ],
+    "uitslag": "win"
+   },
+   {
+    "taak": "mmlu-nl",
+    "metriek": "mcc",
+    "publicatie": 2.0,
+    "waarde": 37.1621,
+    "interval": [
+     36.1912,
+     38.133
+    ],
+    "uitslag": "win"
+   },
+   {
+    "taak": "hellaswag-nl",
+    "metriek": "mcc",
+    "publicatie": -2.0,
+    "waarde": 22.458,
+    "interval": [
+     20.7278,
+     24.1881
+    ],
+    "uitslag": "win"
+   }
+  ]
+ },
+ "som_zes": {
+  "naam": "zes taken, claimmetriek",
+  "taken": [
+   "dbrd",
+   "scala-nl",
+   "conll-nl",
+   "squad-nl",
+   "mmlu-nl",
+   "hellaswag-nl"
+  ],
+  "metriekregel": "claimmetriek",
+  "taken_gemeten": 6,
+  "taken_ontbrekend": [],
+  "som_verschil": -1.108,
+  "som_verschil_model_min_referentie": 1.108,
+  "som_verschil_onafgerond": -1.1076,
+  "somregel": "de per taak op drie decimalen afgeronde verschillen opgeteld, zoals de eerdere ronde dat doet; de onafgeronde som staat ernaast en scheelt hoogstens enkele duizendsten",
+  "som_score_model": 293.18,
+  "som_score_referentie": 292.072,
+  "somband_referentie": [
+   282.793,
+   301.352
+  ],
+  "som_model_binnen_somband": true,
+  "som_model_onder_ondergrens": false,
+  "taken_onder_de_ondergrens": [],
+  "per_taak": [
+   {
+    "taak": "dbrd",
+    "metriek": "mcc",
+    "model": 90.5578,
+    "referentie": 90.5855,
+    "referentie_min_model": 0.0276,
+    "model_min_referentie": -0.0276,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "scala-nl",
+    "metriek": "mcc",
+    "model": 34.4078,
+    "referentie": 34.2147,
+    "referentie_min_model": -0.1931,
+    "model_min_referentie": 0.1931,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "conll-nl",
+    "metriek": "micro_f1_no_misc",
+    "model": 46.5178,
+    "referentie": 47.2182,
+    "referentie_min_model": 0.7004,
+    "model_min_referentie": -0.7004,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "squad-nl",
+    "metriek": "em",
+    "model": 62.0765,
+    "referentie": 61.8835,
+    "referentie_min_model": -0.193,
+    "model_min_referentie": 0.193,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "mmlu-nl",
+    "metriek": "mcc",
+    "model": 37.1621,
+    "referentie": 37.0335,
+    "referentie_min_model": -0.1286,
+    "model_min_referentie": 0.1286,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "hellaswag-nl",
+    "metriek": "mcc",
+    "model": 22.458,
+    "referentie": 21.137,
+    "referentie_min_model": -1.3209,
+    "model_min_referentie": 1.3209,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   }
+  ]
+ },
+ "som_acht": {
+  "naam": "acht taken, claimmetriek",
+  "taken": [
+   "dbrd",
+   "scala-nl",
+   "conll-nl",
+   "squad-nl",
+   "wiki-lingua-nl",
+   "mmlu-nl",
+   "hellaswag-nl",
+   "duidelijke-taal"
+  ],
+  "metriekregel": "claimmetriek",
+  "taken_gemeten": 8,
+  "taken_ontbrekend": [],
+  "som_verschil": -0.724,
+  "som_verschil_model_min_referentie": 0.724,
+  "som_verschil_onafgerond": -0.7233,
+  "somregel": "de per taak op drie decimalen afgeronde verschillen opgeteld, zoals de eerdere ronde dat doet; de onafgeronde som staat ernaast en scheelt hoogstens enkele duizendsten",
+  "som_score_model": 380.309,
+  "som_score_referentie": 379.585,
+  "somband_referentie": [
+   367.178,
+   391.993
+  ],
+  "som_model_binnen_somband": true,
+  "som_model_onder_ondergrens": false,
+  "taken_onder_de_ondergrens": [],
+  "per_taak": [
+   {
+    "taak": "dbrd",
+    "metriek": "mcc",
+    "model": 90.5578,
+    "referentie": 90.5855,
+    "referentie_min_model": 0.0276,
+    "model_min_referentie": -0.0276,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "scala-nl",
+    "metriek": "mcc",
+    "model": 34.4078,
+    "referentie": 34.2147,
+    "referentie_min_model": -0.1931,
+    "model_min_referentie": 0.1931,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "conll-nl",
+    "metriek": "micro_f1_no_misc",
+    "model": 46.5178,
+    "referentie": 47.2182,
+    "referentie_min_model": 0.7004,
+    "model_min_referentie": -0.7004,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "squad-nl",
+    "metriek": "em",
+    "model": 62.0765,
+    "referentie": 61.8835,
+    "referentie_min_model": -0.193,
+    "model_min_referentie": 0.193,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "wiki-lingua-nl",
+    "metriek": "chr_f3pp",
+    "model": 34.1821,
+    "referentie": 34.1729,
+    "referentie_min_model": -0.0092,
+    "model_min_referentie": 0.0092,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "mmlu-nl",
+    "metriek": "mcc",
+    "model": 37.1621,
+    "referentie": 37.0335,
+    "referentie_min_model": -0.1286,
+    "model_min_referentie": 0.1286,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "hellaswag-nl",
+    "metriek": "mcc",
+    "model": 22.458,
+    "referentie": 21.137,
+    "referentie_min_model": -1.3209,
+    "model_min_referentie": 1.3209,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "duidelijke-taal",
+    "metriek": "meteor",
+    "model": 52.9465,
+    "referentie": 53.34,
+    "referentie_min_model": 0.3935,
+    "model_min_referentie": -0.3935,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   }
+  ]
+ },
+ "som_tien": {
+  "naam": "tien taken, primaire metriek",
+  "taken": [
+   "dbrd",
+   "scala-nl",
+   "conll-nl",
+   "squad-nl",
+   "wiki-lingua-nl",
+   "mmlu-nl",
+   "hellaswag-nl",
+   "duidelijke-taal",
+   "valeu-nl",
+   "mbbq-nl"
+  ],
+  "metriekregel": "primaire_metriek",
+  "taken_gemeten": 10,
+  "taken_ontbrekend": [],
+  "som_verschil": 0.095,
+  "som_verschil_model_min_referentie": -0.095,
+  "som_verschil_onafgerond": 0.0948,
+  "somregel": "de per taak op drie decimalen afgeronde verschillen opgeteld, zoals de eerdere ronde dat doet; de onafgeronde som staat ernaast en scheelt hoogstens enkele duizendsten",
+  "som_score_model": 425.325,
+  "som_score_referentie": 425.42,
+  "somband_referentie": [
+   407.854,
+   442.985
+  ],
+  "som_model_binnen_somband": true,
+  "som_model_onder_ondergrens": false,
+  "taken_onder_de_ondergrens": [],
+  "per_taak": [
+   {
+    "taak": "dbrd",
+    "metriek": "mcc",
+    "model": 90.5578,
+    "referentie": 90.5855,
+    "referentie_min_model": 0.0276,
+    "model_min_referentie": -0.0276,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "scala-nl",
+    "metriek": "mcc",
+    "model": 34.4078,
+    "referentie": 34.2147,
+    "referentie_min_model": -0.1931,
+    "model_min_referentie": 0.1931,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "conll-nl",
+    "metriek": "micro_f1_no_misc",
+    "model": 46.5178,
+    "referentie": 47.2182,
+    "referentie_min_model": 0.7004,
+    "model_min_referentie": -0.7004,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "squad-nl",
+    "metriek": "f1",
+    "model": 77.349,
+    "referentie": 76.7836,
+    "referentie_min_model": -0.5654,
+    "model_min_referentie": 0.5654,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "wiki-lingua-nl",
+    "metriek": "chr_f3pp",
+    "model": 34.1821,
+    "referentie": 34.1729,
+    "referentie_min_model": -0.0092,
+    "model_min_referentie": 0.0092,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "mmlu-nl",
+    "metriek": "mcc",
+    "model": 37.1621,
+    "referentie": 37.0335,
+    "referentie_min_model": -0.1286,
+    "model_min_referentie": 0.1286,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "hellaswag-nl",
+    "metriek": "mcc",
+    "model": 22.458,
+    "referentie": 21.137,
+    "referentie_min_model": -1.3209,
+    "model_min_referentie": 1.3209,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "duidelijke-taal",
+    "metriek": "meteor",
+    "model": 52.9465,
+    "referentie": 53.34,
+    "referentie_min_model": 0.3935,
+    "model_min_referentie": -0.3935,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "valeu-nl",
+    "metriek": "european_values",
+    "model": 2.0235,
+    "referentie": 3.9283,
+    "referentie_min_model": 1.9048,
+    "model_min_referentie": -1.9048,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   },
+   {
+    "taak": "mbbq-nl",
+    "metriek": "bias_adjusted_accuracy_ambig",
+    "model": 27.7202,
+    "referentie": 27.0059,
+    "referentie_min_model": -0.7143,
+    "model_min_referentie": 0.7143,
+    "model_binnen_interval_referentie": true,
+    "model_onder_ondergrens": false
+   }
+  ]
+ },
+ "somregel": {
+  "rol": "RAPPORTAGE, geen oordeel",
+  "grond": "De somband is over acht taken ruim twintig punten breed terwijl de modellen enkele punten schelen, dus zij onderscheidt niets. Zij blijft in de tabel staan zodat dat zichtbaar is.",
+  "som_model_binnen_somband": true,
+  "somband": [
+   367.178,
+   391.993
+  ]
+ },
+ "harde_poort": {
+  "oordeel": "groen",
+  "redenen": [],
+  "cijfers": {
+   "wc1_winsten": 5,
+   "wc1_ondergrens": 5,
+   "taken_onder_de_ondergrens": 0,
+   "drempel": 2,
+   "welke_taken_onder": []
+  },
+  "regels": [
+   "WC#1-winsten minstens 5",
+   "minder dan 2 taken onder de 95%-ondergrens van de voorganger"
+  ],
+  "grond": "De per-taak-regel is bindend, de somregel is rapportage"
+ }
+}
