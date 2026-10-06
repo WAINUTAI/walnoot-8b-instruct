@@ -38,7 +38,7 @@ naar Hugging Face verwijst.
 | `MANIFEST-GEWICHTEN.md` | het manifest met de checksums van de gewichten; het is gelijk aan dat bij de gewichten op Hugging Face, op de toelichting bovenaan na |
 | `LICENSE` | de volledige tekst van de Apache License 2.0 |
 | `NOTICE` | de bronnen die naamsvermelding vragen |
-| `assets` | het logo van Walnoot bovenaan deze README, voor light en dark mode |
+| `assets` | het logo van Walnoot bovenaan deze README, voor light en dark mode; het valt niet onder de Apache License 2.0 |
 | `SHA256SUMS.txt` | de checksum van elk bestand in deze repository, behalve van de lijst zelf |
 
 **De trainingsdata zelf staat niet in deze repository.** Wij publiceren de brondata niet; wat
@@ -213,6 +213,9 @@ twee adressen.
 Apache License 2.0, zoals het model. Zie `LICENSE` en `NOTICE`; dat laatste noemt de bronnen die
 naamsvermelding vragen.
 
+Het logo van Walnoot in `assets/` valt niet onder deze licentie. Alle rechten daarop blijven bij
+WAINUT.
+
 Meer over het project staat op walnoot.ai.
 
 ## English summary
@@ -228,8 +231,8 @@ later plan on some points, such as the step counts; `recept/README.md` states th
 actually ran. Placeholders
 such as `<W>` stand for internal paths or names that are not published. None of the three
 contamination checks in `decontaminatie/` compares the full continued-pretraining corpus as
-trained against EuroEval. Everything here is under the Apache License 2.0. See walnoot.ai for more
-about the project.
+trained against EuroEval. Everything here is under the Apache License 2.0, except the Walnoot logo
+in `assets/`, to which WAINUT reserves all rights. See walnoot.ai for more about the project.
 
 ## Vermelding van de rekenfaciliteit
 
